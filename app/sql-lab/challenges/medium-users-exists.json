@@ -1,0 +1,121 @@
+{
+  "configVersion": 2,
+  "id": "medium-users-exists",
+  "number": 4,
+  "title": "练过中等题的用户",
+  "chapter": "JOIN 与子查询",
+  "difficulty": "medium",
+  "tags": [
+    "EXISTS",
+    "相关子查询",
+    "半连接"
+  ],
+  "summary": "用存在性查询避免一名用户被多次练习展开。",
+  "task": "返回至少练习过一道 medium 题的注册用户，输出 device_id、university。每名用户只能出现一次，按 device_id 升序。",
+  "output": [
+    "device_id",
+    "university"
+  ],
+  "starterSql": "SELECT u.device_id, u.university\nFROM user_profile AS u\nORDER BY u.device_id;",
+  "referenceSql": "SELECT u.device_id, u.university\nFROM user_profile AS u\nWHERE EXISTS (\n  SELECT 1\n  FROM question_practice_detail AS p\n  JOIN question_detail AS q\n    ON q.question_id = p.question_id\n  WHERE p.device_id = u.device_id\n    AND q.difficult_level = 'medium'\n)\nORDER BY u.device_id;",
+  "orderSensitive": true,
+  "hints": [
+    "这是“是否存在”问题，不需要把练习明细展开到最终结果。",
+    "让子查询用 p.device_id = u.device_id 与外层用户相关联。"
+  ],
+  "analysis": "EXISTS 表达半连接：找到第一条匹配就足以确定该用户。外层用户主键天然保证一人一行。JOIN + DISTINCT 也能做对，但 EXISTS 更贴近业务语义。",
+  "pitfalls": [
+    "忘记相关条件会让所有用户一起通过或一起失败。",
+    "JOIN 明细后不去重会让多次练习产生重复用户。"
+  ],
+  "dialectNote": "SQLite 与 MySQL 都支持相关 EXISTS。实际性能要看索引、数据分布和执行计划，不能笼统断言 EXISTS 永远更快。",
+  "tests": [
+    {
+      "id": "q04-unregistered",
+      "name": "重复练习与未注册设备",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例含重复 medium 练习和未注册设备。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nCREATE TABLE question_detail (\n  question_id INTEGER PRIMARY KEY,\n  difficult_level TEXT NOT NULL\n);\n\nINSERT INTO user_profile VALUES\n  (2001, '浙江大学'), (2002, '复旦大学'), (2003, '南京大学');\nINSERT INTO question_detail VALUES\n  (201, 'medium'), (202, 'easy');\nINSERT INTO question_practice_detail VALUES\n  (10, 2002, 201, 'right', '2021-09-01'),\n  (11, 2002, 201, 'right', '2021-09-02'),\n  (12, 2003, 202, 'right', '2021-09-03'),\n  (13, 9999, 201, 'right', '2021-09-04');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "exists-semi-join",
+      "label": "存在性查询",
+      "success": "用相关 EXISTS 表达“至少有一条”。",
+      "suggestion": "结果正确；这类“是否存在”问题还可用相关 EXISTS 表达，避免再去重。",
+      "allOf": [
+        "\\bEXISTS\\s*\\(",
+        "P\\s*\\.\\s*DEVICE_ID\\s*=\\s*U\\s*\\.\\s*DEVICE_ID"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nCREATE TABLE question_detail (\n  question_id INTEGER PRIMARY KEY,\n  difficult_level TEXT NOT NULL\n);\n\nINSERT INTO user_profile VALUES\n  (1001, '浙江大学'), (1002, '山东大学'), (1003, '北京大学');\nINSERT INTO question_detail VALUES\n  (101, 'easy'), (102, 'medium'), (103, 'hard');\nINSERT INTO question_practice_detail VALUES\n  (1, 1001, 102, 'right', '2021-08-01'),\n  (2, 1001, 102, 'wrong', '2021-08-02'),\n  (3, 1002, 101, 'right', '2021-08-03');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      },
+      {
+        "name": "question_detail",
+        "title": "题目维表",
+        "columns": [
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目唯一标识"
+          },
+          {
+            "name": "difficult_level",
+            "type": "TEXT",
+            "note": "easy / medium / hard"
+          }
+        ]
+      }
+    ]
+  }
+}

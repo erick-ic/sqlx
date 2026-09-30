@@ -1,0 +1,79 @@
+{
+  "configVersion": 2,
+  "id": "duplicate-dimension-key",
+  "number": 5,
+  "title": "定位维表重复键",
+  "chapter": "JOIN 与子查询",
+  "difficulty": "easy",
+  "tags": [
+    "GROUP BY",
+    "HAVING",
+    "数据质量"
+  ],
+  "summary": "从关联键入手定位 JOIN 结果翻倍的根因。",
+  "task": "找出用户维表中出现超过一次的 device_id，返回 device_id、duplicate_cnt，按 device_id 升序。",
+  "output": [
+    "device_id",
+    "duplicate_cnt"
+  ],
+  "starterSql": "SELECT device_id, COUNT(*) AS duplicate_cnt\nFROM user_profile_dirty\nGROUP BY device_id\nORDER BY device_id;",
+  "referenceSql": "SELECT device_id, COUNT(*) AS duplicate_cnt\nFROM user_profile_dirty\nGROUP BY device_id\nHAVING COUNT(*) > 1\nORDER BY device_id;",
+  "orderSensitive": true,
+  "hints": [
+    "先按关联键分组，再统计每组行数。",
+    "聚合后的组级条件放在 HAVING，而不是 WHERE。"
+  ],
+  "analysis": "JOIN 结果异常膨胀时，先验证两侧关联键的基数与唯一性。本题直接找出违反“一设备一档案”假设的数据，而不是用最终 DISTINCT 掩盖问题。",
+  "pitfalls": [
+    "WHERE COUNT(*) > 1 在分组前不可用。",
+    "最终 SELECT DISTINCT 无法告诉你是哪一侧、哪个键发生重复。"
+  ],
+  "dialectNote": "语法两端一致。清洗完生产数据后，可为 device_id 增加 UNIQUE 约束。",
+  "tests": [
+    {
+      "id": "q05-multiple-groups",
+      "name": "多个重复组",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例有两个重复组，重复次数分别为 3 和 2。",
+      "setupSql": "CREATE TABLE user_profile_dirty (\n  row_id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  university TEXT NOT NULL\n);\n\nINSERT INTO user_profile_dirty VALUES\n  (10, 1001, 'A大学'), (11, 1001, 'A大学'), (12, 1001, 'A大学'),\n  (13, 1002, 'B大学'), (14, 1003, 'C大学'), (15, 1003, 'C大学');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "group-having",
+      "label": "先分组、后筛组",
+      "success": "使用 GROUP BY device_id 与 HAVING COUNT(*) > 1。",
+      "suggestion": "分组后的计数条件应写在 HAVING 中。",
+      "allOf": [
+        "GROUP\\s+BY\\s+(?:\\w+\\.)?DEVICE_ID",
+        "HAVING\\s+COUNT\\s*\\(\\s*\\*\\s*\\)\\s*>\\s*1"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile_dirty (\n  row_id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  university TEXT NOT NULL\n);\n\nINSERT INTO user_profile_dirty VALUES\n  (1, 2315, '浙江大学'), (2, 2315, '浙江大学'),\n  (3, 5432, '山东大学'), (4, 8888, '北京大学');",
+    "tables": [
+      {
+        "name": "user_profile_dirty",
+        "title": "待清洗用户档案",
+        "columns": [
+          {
+            "name": "row_id",
+            "type": "INTEGER",
+            "note": "行主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "故意允许重复"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      }
+    ]
+  }
+}

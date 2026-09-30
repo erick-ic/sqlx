@@ -1,0 +1,22 @@
+# Dependencies
+/node_modules/
+
+# Generated files and tool caches
+/dist/
+/.next/
+/.vinext/
+/.wrangler/
+/build/
+*.tsbuildinfo
+
+# Local environment files
+.env*
+!.env.example
+
+# Logs and operating system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Private keys
+*.pem

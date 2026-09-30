@@ -1,0 +1,95 @@
+{
+  "configVersion": 2,
+  "id": "date-range-detail",
+  "number": 1,
+  "title": "八月练习明细",
+  "chapter": "日期与过滤",
+  "difficulty": "easy",
+  "tags": [
+    "WHERE",
+    "日期范围",
+    "索引"
+  ],
+  "summary": "用半开区间筛选整月数据，并稳定排序。",
+  "task": "查询 2021 年 8 月发生的所有练习。必须正确排除 7 月 31 日和 9 月 1 日，并按 practice_date、id 升序。",
+  "output": [
+    "id",
+    "device_id",
+    "question_id",
+    "practice_date"
+  ],
+  "starterSql": "SELECT id, device_id, question_id, practice_date\nFROM question_practice_detail\nORDER BY practice_date, id;",
+  "referenceSql": "SELECT id, device_id, question_id, practice_date\nFROM question_practice_detail\nWHERE practice_date >= '2021-08-01'\n  AND practice_date < '2021-09-01'\nORDER BY practice_date, id;",
+  "orderSensitive": true,
+  "hints": [
+    "把月份写成“包含月初、不包含下月月初”的半开区间。",
+    "让条件直接作用于 practice_date，不要套 YEAR()、MONTH() 或日期格式化函数。"
+  ],
+  "analysis": "半开区间不依赖月份天数，也能自然覆盖带时分秒的字段。条件直接作用于索引列时，B-Tree 更容易进行 range scan。",
+  "pitfalls": [
+    "BETWEEN '2021-08-01' AND '2021-08-31' 对 DATE 尚可，但迁移到 DATETIME 时容易漏掉 8 月 31 日白天。",
+    "YEAR(practice_date)=2021 会对每一行先做计算，普通索引通常难以直接定位范围。"
+  ],
+  "dialectNote": "练习环境以 ISO 文本保存日期；MySQL 中把它视为 DATE。该范围写法在两端一致。",
+  "tests": [
+    {
+      "id": "q01-boundary",
+      "name": "月初月末边界",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例包含 7 月 31 日、8 月 31 日和 9 月 1 日。",
+      "setupSql": "CREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO question_practice_detail VALUES\n  (10, 1001, 101, 'right', '2021-07-31'),\n  (11, 1001, 102, 'wrong', '2021-08-01'),\n  (12, 1002, 103, 'right', '2021-08-31'),\n  (13, 1003, 104, 'right', '2021-08-31'),\n  (14, 1004, 105, 'wrong', '2021-09-01');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "half-open-range",
+      "label": "索引友好的半开区间",
+      "success": "日期列直接使用 >= 月初、< 下月月初，边界清楚且便于索引扫描。",
+      "suggestion": "结果可能正确，但建议不要在日期列上使用函数或 LIKE；改成 >= 月初且 < 下月月初。",
+      "allOf": [
+        "PRACTICE_DATE\\s*>=\\s*['\"]2021-08-01['\"]",
+        "PRACTICE_DATE\\s*<\\s*['\"]2021-09-01['\"]"
+      ],
+      "noneOf": [
+        "\\b(?:YEAR|MONTH|DATE|STRFTIME)\\s*\\(",
+        "PRACTICE_DATE\\s+LIKE\\b"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO question_practice_detail VALUES\n  (1, 2138, 111, 'right', '2021-08-01'),\n  (2, 3214, 112, 'right', '2021-08-05'),\n  (3, 3214, 113, 'wrong', '2021-08-10'),\n  (4, 6543, 111, 'right', '2021-09-01');",
+    "tables": [
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

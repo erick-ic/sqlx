@@ -1,0 +1,123 @@
+{
+  "configVersion": 2,
+  "id": "average-by-school-difficulty",
+  "number": 9,
+  "title": "学校 × 难度的人均答题量",
+  "chapter": "分组与统计",
+  "difficulty": "medium",
+  "tags": [
+    "业务平均",
+    "三表 JOIN",
+    "ROUND"
+  ],
+  "summary": "用“总量 ÷ 去重参与人数”定义业务平均。",
+  "task": "按学校和题目难度统计参与该组答题用户的人均练习量 avg_answer_cnt，四舍五入到 4 位，按 university、difficult_level 升序。",
+  "output": [
+    "university",
+    "difficult_level",
+    "avg_answer_cnt"
+  ],
+  "starterSql": "SELECT u.university, q.difficult_level\nFROM user_profile AS u\nJOIN question_practice_detail AS p ON p.device_id = u.device_id\nJOIN question_detail AS q ON q.question_id = p.question_id\nGROUP BY u.university, q.difficult_level\nORDER BY u.university, q.difficult_level;",
+  "referenceSql": "SELECT\n  u.university,\n  q.difficult_level,\n  ROUND(COUNT(*) * 1.0 / COUNT(DISTINCT u.device_id), 4) AS avg_answer_cnt\nFROM user_profile AS u\nJOIN question_practice_detail AS p ON p.device_id = u.device_id\nJOIN question_detail AS q ON q.question_id = p.question_id\nGROUP BY u.university, q.difficult_level\nORDER BY u.university, q.difficult_level;",
+  "orderSensitive": true,
+  "hints": [
+    "先明确分母：该学校、该难度下实际参与过的去重用户。",
+    "用 1.0 让除法意图明确，并 ROUND 到 4 位。"
+  ],
+  "analysis": "这里的“平均”不是对某个现成列直接 AVG()，而是业务比率。一个人多答会增加分子，但在同组分母中只计一次。",
+  "pitfalls": [
+    "COUNT(device_id) 会把同一用户重复计入分母。",
+    "漏掉难度分组会把 easy、medium、hard 混在一起。"
+  ],
+  "dialectNote": "两端都支持该写法。判题比较数值而不比较小数末尾展示出的 0。",
+  "tests": [
+    {
+      "id": "q09-fraction",
+      "name": "非整数业务平均",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例包含 3 次 / 2 人，检查整数除法和分母口径。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nCREATE TABLE question_detail (\n  question_id INTEGER PRIMARY KEY,\n  difficult_level TEXT NOT NULL\n);\n\nINSERT INTO user_profile VALUES (2001, 'A大学'), (2002, 'A大学'), (2003, 'B大学');\nINSERT INTO question_detail VALUES (201, 'medium'), (202, 'hard');\nINSERT INTO question_practice_detail VALUES\n  (10, 2001, 201, 'right', '2021-09-01'), (11, 2001, 201, 'wrong', '2021-09-02'),\n  (12, 2002, 201, 'right', '2021-09-03'), (13, 2003, 202, 'right', '2021-09-04'),\n  (14, 2003, 202, 'wrong', '2021-09-05');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "business-average",
+      "label": "业务平均口径",
+      "success": "用事实总量除以去重参与人数，并保留 4 位。",
+      "suggestion": "本题的平均值应写成 COUNT(*) / COUNT(DISTINCT device_id)，并 ROUND(..., 4)。",
+      "allOf": [
+        "COUNT\\s*\\(\\s*\\*\\s*\\)",
+        "COUNT\\s*\\(\\s*DISTINCT\\s+(?:U\\s*\\.\\s*)?DEVICE_ID\\s*\\)",
+        "ROUND\\s*\\([\\s\\S]*,\\s*4\\s*\\)"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nCREATE TABLE question_detail (\n  question_id INTEGER PRIMARY KEY,\n  difficult_level TEXT NOT NULL\n);\n\nINSERT INTO user_profile VALUES (1001, '浙江大学'), (1002, '浙江大学'), (1003, '山东大学');\nINSERT INTO question_detail VALUES (101, 'easy'), (102, 'medium'), (103, 'hard');\nINSERT INTO question_practice_detail VALUES\n  (1, 1001, 101, 'right', '2021-08-01'), (2, 1001, 101, 'wrong', '2021-08-02'),\n  (3, 1002, 101, 'right', '2021-08-03'), (4, 1001, 102, 'right', '2021-08-04'),\n  (5, 1003, 101, 'wrong', '2021-08-05'), (6, 1003, 103, 'right', '2021-08-06');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      },
+      {
+        "name": "question_detail",
+        "title": "题目维表",
+        "columns": [
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目唯一标识"
+          },
+          {
+            "name": "difficult_level",
+            "type": "TEXT",
+            "note": "easy / medium / hard"
+          }
+        ]
+      }
+    ]
+  }
+}

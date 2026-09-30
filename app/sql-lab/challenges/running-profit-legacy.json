@@ -1,0 +1,84 @@
+{
+  "configVersion": 2,
+  "id": "running-profit-legacy",
+  "number": 12,
+  "title": "MySQL 5.x 风格累计利润",
+  "chapter": "窗口函数",
+  "difficulty": "hard",
+  "tags": [
+    "自连接",
+    "预聚合",
+    "复杂度"
+  ],
+  "summary": "不用窗口函数，先按天预聚合再做历史范围自连接。",
+  "task": "不使用窗口函数和 CTE。先汇总每日 day_profit，再用自连接计算每日 cumulative_profit，按日期升序。",
+  "output": [
+    "profit_date",
+    "day_profit",
+    "cumulative_profit"
+  ],
+  "starterSql": "SELECT profit_date, SUM(profit) AS day_profit\nFROM daily_profits\nGROUP BY profit_date\nORDER BY profit_date;",
+  "referenceSql": "SELECT\n  a.profit_date,\n  a.day_profit,\n  SUM(b.day_profit) AS cumulative_profit\nFROM (\n  SELECT profit_date, SUM(profit) AS day_profit\n  FROM daily_profits\n  GROUP BY profit_date\n) AS a\nJOIN (\n  SELECT profit_date, SUM(profit) AS day_profit\n  FROM daily_profits\n  GROUP BY profit_date\n) AS b\n  ON b.profit_date <= a.profit_date\nGROUP BY a.profit_date, a.day_profit\nORDER BY a.profit_date;",
+  "orderSensitive": true,
+  "hints": [
+    "先构造两份“一天一行”的派生表，避免同日明细互相相乘。",
+    "每个当前日期 a 关联所有 b.profit_date <= a.profit_date 的历史日期。"
+  ],
+  "analysis": "自连接把当前日期与此前所有日期配对。先按天汇总至关重要，否则同日多笔会产生多对多膨胀。该写法便于理解原理，但日期数为 D 时会产生近似 O(D²) 的配对。",
+  "pitfalls": [
+    "直接拿明细表自连接会让同日多笔互相相乘。",
+    "MySQL 5.x 不支持窗口函数，MySQL 8+ 则更推荐窗口方案。"
+  ],
+  "dialectNote": "参考 SQL 同时兼容 SQLite 与 MySQL 5.x；新系统通常应使用窗口函数并检查真实执行计划。",
+  "tests": [
+    {
+      "id": "q12-daily-aggregation",
+      "name": "同日明细预聚合",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例同日有多笔，必须先汇总到一天一行。",
+      "setupSql": "CREATE TABLE daily_profits (\n  profit_id INTEGER PRIMARY KEY,\n  profit_date TEXT NOT NULL,\n  profit INTEGER NOT NULL\n);\n\nINSERT INTO daily_profits VALUES\n  (10, '2021-02-01', 100), (11, '2021-02-01', 25),\n  (12, '2021-02-02', -40), (13, '2021-02-03', 10), (14, '2021-02-03', -5);"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "legacy-preaggregation",
+      "label": "先聚合再自连接",
+      "success": "两侧派生表先按天聚合，并用 <= 连接历史日期。",
+      "suggestion": "MySQL 5.x 写法应先按 profit_date 聚合，再通过 b.profit_date <= a.profit_date 自连接。",
+      "allOf": [
+        "GROUP\\s+BY\\s+PROFIT_DATE",
+        "B\\s*\\.\\s*PROFIT_DATE\\s*<=\\s*A\\s*\\.\\s*PROFIT_DATE"
+      ],
+      "noneOf": [
+        "\\bOVER\\s*\\(",
+        "^\\s*WITH\\b"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE daily_profits (\n  profit_id INTEGER PRIMARY KEY,\n  profit_date TEXT NOT NULL,\n  profit INTEGER NOT NULL\n);\n\nINSERT INTO daily_profits VALUES\n  (1, '2021-01-01', 100), (2, '2021-01-02', 200), (3, '2021-01-03', -50);",
+    "tables": [
+      {
+        "name": "daily_profits",
+        "title": "利润明细",
+        "columns": [
+          {
+            "name": "profit_id",
+            "type": "INTEGER",
+            "note": "利润记录主键"
+          },
+          {
+            "name": "profit_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          },
+          {
+            "name": "profit",
+            "type": "INTEGER",
+            "note": "当笔利润，可为负数"
+          }
+        ]
+      }
+    ]
+  }
+}

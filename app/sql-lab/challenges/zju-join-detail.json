@@ -1,0 +1,106 @@
+{
+  "configVersion": 2,
+  "id": "zju-join-detail",
+  "number": 3,
+  "title": "浙江大学答题明细",
+  "chapter": "JOIN 与子查询",
+  "difficulty": "easy",
+  "tags": [
+    "INNER JOIN",
+    "ON",
+    "过滤"
+  ],
+  "summary": "从用户维表筛选学校，再关联答题事实。",
+  "task": "查询浙江大学用户的所有答题记录，返回 device_id、question_id、result，按练习记录 id 升序；最终不要返回 id。",
+  "output": [
+    "device_id",
+    "question_id",
+    "result"
+  ],
+  "starterSql": "SELECT p.device_id, p.question_id, p.result\nFROM question_practice_detail AS p\nJOIN user_profile AS u\n  ON u.device_id = p.device_id\nORDER BY p.id;",
+  "referenceSql": "SELECT p.device_id, p.question_id, p.result\nFROM question_practice_detail AS p\nJOIN user_profile AS u\n  ON u.device_id = p.device_id\nWHERE u.university = '浙江大学'\nORDER BY p.id;",
+  "orderSensitive": true,
+  "hints": [
+    "两张表通过 device_id 关联，学校条件来自 user_profile。",
+    "只要匹配用户，不需要保留没有用户档案的练习记录。"
+  ],
+  "analysis": "INNER JOIN 直接表达“只保留有匹配且学校符合的记录”。LEFT JOIN 后再过滤右表也可能得到相同结果，但语义更绕，后续改条件时更容易出错。",
+  "pitfalls": [
+    "遗漏 ON 条件会产生笛卡尔积。",
+    "SELECT device_id 未加表别名时，在两表同名列之间会产生歧义。"
+  ],
+  "dialectNote": "此题语法两端一致。正式 user_profile.device_id 应由主键或唯一索引保证唯一。",
+  "tests": [
+    {
+      "id": "q03-multiple-users",
+      "name": "同校多用户与孤儿记录",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例有两名浙大用户，以及一条没有用户档案的练习。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES\n  (1001, '浙江大学'), (1002, '浙江大学'), (1003, '北京大学');\nINSERT INTO question_practice_detail VALUES\n  (10, 1002, 202, 'wrong', '2021-08-03'),\n  (11, 9999, 203, 'right', '2021-08-04'),\n  (12, 1001, 201, 'right', '2021-08-05'),\n  (13, 1003, 204, 'right', '2021-08-06');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "inner-join",
+      "label": "关联语义准确",
+      "success": "使用 INNER JOIN 并在 ON 中按 device_id 关联。",
+      "suggestion": "本题只要有匹配的用户，推荐使用 JOIN ... ON device_id。",
+      "allOf": [
+        "\\bJOIN\\s+USER_PROFILE\\b",
+        "\\bON\\b[\\s\\S]*DEVICE_ID"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES\n  (2315, '浙江大学'), (5432, '山东大学');\nINSERT INTO question_practice_detail VALUES\n  (1, 2315, 115, 'right', '2021-08-01'),\n  (2, 2315, 116, 'right', '2021-08-02'),\n  (3, 5432, 117, 'wrong', '2021-08-03');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

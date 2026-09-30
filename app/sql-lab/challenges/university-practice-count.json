@@ -1,0 +1,105 @@
+{
+  "configVersion": 2,
+  "id": "university-practice-count",
+  "number": 7,
+  "title": "各学校总练习次数",
+  "chapter": "分组与统计",
+  "difficulty": "easy",
+  "tags": [
+    "GROUP BY",
+    "COUNT",
+    "JOIN"
+  ],
+  "summary": "按学校分组，指标保持练习事实粒度。",
+  "task": "统计每所学校产生的练习记录总数 practice_cnt。只展示至少有一条练习的学校，按 university 升序。",
+  "output": [
+    "university",
+    "practice_cnt"
+  ],
+  "starterSql": "SELECT u.university, COUNT(*) AS practice_cnt\nFROM user_profile AS u\nJOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nORDER BY u.university;",
+  "referenceSql": "SELECT u.university, COUNT(*) AS practice_cnt\nFROM user_profile AS u\nJOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nGROUP BY u.university\nORDER BY u.university;",
+  "orderSensitive": true,
+  "hints": [
+    "先关联用户和练习，再按学校分组。",
+    "题目要的是练习记录总量，不要对用户去重。"
+  ],
+  "analysis": "分组粒度是学校，指标粒度是练习记录。一个用户的多次练习都应计入。INNER JOIN 自动排除没有练习的学校和没有注册档案的设备。",
+  "pitfalls": [
+    "COUNT(DISTINCT device_id) 统计的是参与人数，不是练习次数。",
+    "选择列表中的非聚合列应出现在 GROUP BY。"
+  ],
+  "dialectNote": "标准聚合语法一致；写全分组列可兼容 MySQL ONLY_FULL_GROUP_BY。",
+  "tests": [
+    {
+      "id": "q07-orphan",
+      "name": "多用户与孤儿设备",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例含同校多用户和一条未注册设备记录。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES (2001, 'A大学'), (2002, 'A大学'), (2003, 'B大学');\nINSERT INTO question_practice_detail VALUES\n  (10, 2002, 201, 'right', '2021-09-01'), (11, 2001, 202, 'right', '2021-09-02'),\n  (12, 2001, 203, 'wrong', '2021-09-03'), (13, 9999, 204, 'right', '2021-09-04');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "school-grain",
+      "label": "分组与指标粒度",
+      "success": "按学校分组，并按事实行 COUNT(*)。",
+      "suggestion": "添加 GROUP BY university；练习次数用 COUNT(*)，不要对用户去重。",
+      "allOf": [
+        "GROUP\\s+BY\\s+(?:U\\s*\\.\\s*)?UNIVERSITY",
+        "COUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES\n  (1001, '浙江大学'), (1002, '浙江大学'), (1003, '山东大学'), (1004, '北京大学');\nINSERT INTO question_practice_detail VALUES\n  (1, 1001, 101, 'right', '2021-08-01'), (2, 1001, 102, 'wrong', '2021-08-02'),\n  (3, 1002, 101, 'right', '2021-08-03'), (4, 1003, 103, 'right', '2021-08-04');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "configVersion": 2,
+  "id": "average-all-registered-users",
+  "number": 10,
+  "title": "零答题用户也进入平均值",
+  "chapter": "分组与统计",
+  "difficulty": "hard",
+  "tags": [
+    "LEFT JOIN",
+    "COUNT(expr)",
+    "业务口径"
+  ],
+  "summary": "保留零答题用户，正确处理外连接占位行。",
+  "task": "计算每所学校每名注册用户的平均练习次数 avg_per_registered_user。没有答题的用户进入分母；没有任何练习的学校应为 0，按学校名升序。",
+  "output": [
+    "university",
+    "avg_per_registered_user"
+  ],
+  "starterSql": "SELECT u.university\nFROM user_profile AS u\nLEFT JOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nGROUP BY u.university\nORDER BY u.university;",
+  "referenceSql": "SELECT\n  u.university,\n  ROUND(COUNT(p.id) * 1.0 / COUNT(DISTINCT u.device_id), 4)\n    AS avg_per_registered_user\nFROM user_profile AS u\nLEFT JOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nGROUP BY u.university\nORDER BY u.university;",
+  "orderSensitive": true,
+  "hints": [
+    "驱动表是注册用户表，并保留没有练习匹配的用户。",
+    "LEFT JOIN 的占位行不算练习，所以数 p.id，不要数 *。"
+  ],
+  "analysis": "本题分母是全部注册用户，与“参与用户平均”不同。LEFT JOIN 保留零答题用户；COUNT(p.id) 忽略匹配不到时的 NULL，而 COUNT(*) 会把占位行错误算成一次练习。",
+  "pitfalls": [
+    "INNER JOIN 会把零答题用户从分母移除。",
+    "LEFT JOIN + COUNT(*) 会让零答题学校看起来也有练习。"
+  ],
+  "dialectNote": "语法一致。SQLite 和 MySQL 可能用不同小数位展示 0，但判题按数值比较。",
+  "tests": [
+    {
+      "id": "q10-zero-schools",
+      "name": "零答题学校与 4/3 平均",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例同时验证零练习学校和 4 次 / 3 名注册用户。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES\n  (2001, 'A大学'), (2002, 'A大学'), (2003, 'A大学'), (2004, 'B大学'), (2005, 'C大学');\nINSERT INTO question_practice_detail VALUES\n  (10, 2001, 201, 'right', '2021-09-01'), (11, 2001, 202, 'right', '2021-09-02'),\n  (12, 2002, 203, 'wrong', '2021-09-03'), (13, 2002, 204, 'right', '2021-09-04'),\n  (14, 2004, 205, 'right', '2021-09-05');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "zero-inclusive-average",
+      "label": "零值用户处理正确",
+      "success": "LEFT JOIN 保留注册用户，并只统计非空练习主键。",
+      "suggestion": "使用 LEFT JOIN，并用 COUNT(p.id) 作分子、COUNT(DISTINCT u.device_id) 作分母。",
+      "allOf": [
+        "LEFT\\s+(?:OUTER\\s+)?JOIN\\s+QUESTION_PRACTICE_DETAIL",
+        "COUNT\\s*\\(\\s*P\\s*\\.\\s*ID\\s*\\)",
+        "COUNT\\s*\\(\\s*DISTINCT\\s+U\\s*\\.\\s*DEVICE_ID\\s*\\)"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES\n  (1001, '浙江大学'), (1002, '浙江大学'), (1003, '山东大学'), (1004, '北京大学');\nINSERT INTO question_practice_detail VALUES\n  (1, 1001, 101, 'right', '2021-08-01'), (2, 1001, 102, 'wrong', '2021-08-02'),\n  (3, 1003, 103, 'right', '2021-08-03');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

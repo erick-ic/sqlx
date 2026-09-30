@@ -1,0 +1,103 @@
+{
+  "configVersion": 2,
+  "id": "august-metrics",
+  "number": 2,
+  "title": "八月用户数与练习次数",
+  "chapter": "日期与过滤",
+  "difficulty": "easy",
+  "tags": [
+    "COUNT",
+    "DISTINCT",
+    "日期范围"
+  ],
+  "summary": "区分去重用户数和事实记录数。",
+  "task": "统计 2021 年 8 月的去重练习用户数 user_cnt 和练习记录数 practice_cnt，只返回一行。",
+  "output": [
+    "user_cnt",
+    "practice_cnt"
+  ],
+  "starterSql": "SELECT\n  COUNT(*) AS practice_cnt\nFROM question_practice_detail;",
+  "referenceSql": "SELECT\n  COUNT(DISTINCT device_id) AS user_cnt,\n  COUNT(*) AS practice_cnt\nFROM question_practice_detail\nWHERE practice_date >= '2021-08-01'\n  AND practice_date < '2021-09-01';",
+  "orderSensitive": false,
+  "hints": [
+    "用户数要对 device_id 去重；练习次数直接数事实表记录。",
+    "即使八月没有记录，两个 COUNT 也应返回 0，而不是没有结果行。"
+  ],
+  "analysis": "同一用户可以练习多次，所以两个指标口径不同。公开样例实际是 2 名用户、3 次练习；原笔记中的 3 名用户是笔误。COUNT(*) 也不依赖某个业务列是否为 NULL。",
+  "pitfalls": [
+    "COUNT(device_id) 会把同一用户的多次练习重复计入用户数。",
+    "只写 MONTH(practice_date)=8 会混入其他年份，也不利于普通索引。"
+  ],
+  "dialectNote": "聚合和半开日期范围在 SQLite / MySQL 中一致；生产表可按访问模式为 practice_date 建索引。",
+  "tests": [
+    {
+      "id": "q02-empty",
+      "name": "空月份",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例八月没有任何练习，但聚合仍应返回一行 0、0。",
+      "setupSql": "CREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO question_practice_detail VALUES\n  (21, 8001, 201, 'right', '2021-07-31'),\n  (22, 8002, 202, 'wrong', '2021-09-01');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "half-open-range",
+      "label": "索引友好的半开区间",
+      "success": "日期列直接使用 >= 月初、< 下月月初，边界清楚且便于索引扫描。",
+      "suggestion": "结果可能正确，但建议不要在日期列上使用函数或 LIKE；改成 >= 月初且 < 下月月初。",
+      "allOf": [
+        "PRACTICE_DATE\\s*>=\\s*['\"]2021-08-01['\"]",
+        "PRACTICE_DATE\\s*<\\s*['\"]2021-09-01['\"]"
+      ],
+      "noneOf": [
+        "\\b(?:YEAR|MONTH|DATE|STRFTIME)\\s*\\(",
+        "PRACTICE_DATE\\s+LIKE\\b"
+      ]
+    },
+    {
+      "id": "metric-grain",
+      "label": "指标口径清晰",
+      "success": "用户数去重、练习次数按记录计数。",
+      "suggestion": "同时使用 COUNT(DISTINCT device_id) 与 COUNT(*)，分别表达人数和次数。",
+      "allOf": [
+        "COUNT\\s*\\(\\s*DISTINCT\\s+(?:\\w+\\.)?DEVICE_ID\\s*\\)",
+        "COUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO question_practice_detail VALUES\n  (1, 2138, 111, 'right', '2021-08-01'),\n  (2, 3214, 112, 'right', '2021-08-05'),\n  (3, 3214, 113, 'wrong', '2021-08-10'),\n  (4, 6543, 111, 'right', '2021-09-01');",
+    "tables": [
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

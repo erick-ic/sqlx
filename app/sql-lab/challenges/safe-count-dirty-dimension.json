@@ -1,0 +1,110 @@
+{
+  "configVersion": 2,
+  "id": "safe-count-dirty-dimension",
+  "number": 6,
+  "title": "重复维表下的安全计数",
+  "chapter": "JOIN 与子查询",
+  "difficulty": "medium",
+  "tags": [
+    "EXISTS",
+    "JOIN 基数",
+    "去重"
+  ],
+  "summary": "避免重复维表把事实记录成倍放大。",
+  "task": "user_profile_dirty 可能含重复档案。统计浙江大学用户产生的练习记录数 practice_cnt，每条练习只能计算一次。",
+  "output": [
+    "practice_cnt"
+  ],
+  "starterSql": "SELECT COUNT(*) AS practice_cnt\nFROM question_practice_detail AS p\nJOIN user_profile_dirty AS u\n  ON u.device_id = p.device_id\nWHERE u.university = '浙江大学';",
+  "referenceSql": "SELECT COUNT(*) AS practice_cnt\nFROM question_practice_detail AS p\nWHERE EXISTS (\n  SELECT 1\n  FROM user_profile_dirty AS u\n  WHERE u.device_id = p.device_id\n    AND u.university = '浙江大学'\n);",
+  "orderSensitive": false,
+  "hints": [
+    "直接 JOIN 会让一条练习与多份重复档案分别匹配。",
+    "只关心目标用户是否存在，可用 EXISTS；也可先把维表按 device_id 去重。"
+  ],
+  "analysis": "JOIN 输出基数等于每条左记录乘以右侧匹配数。安全方案包括半连接、JOIN 去重后的维表，或按练习主键 COUNT(DISTINCT p.id)。长期方案仍是修复数据并加唯一约束。",
+  "pitfalls": [
+    "裸 JOIN + COUNT(*) 会把事实记录乘以右表重复度。",
+    "对最终所有列 DISTINCT 可能误删业务上真实重复的记录。"
+  ],
+  "dialectNote": "两端语义一致。DISTINCT 是针对明确业务键的工具，不是所有重复问题的通用修复。",
+  "tests": [
+    {
+      "id": "q06-cardinality",
+      "name": "三重档案与两名目标用户",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例中一个用户有三份档案，但练习记录仍按事实主键计一次。",
+      "setupSql": "CREATE TABLE user_profile_dirty (\n  row_id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile_dirty VALUES\n  (10, 1001, '浙江大学'), (11, 1001, '浙江大学'), (12, 1001, '浙江大学'),\n  (13, 1002, '浙江大学'), (14, 1003, '山东大学');\nINSERT INTO question_practice_detail VALUES\n  (10, 1001, 201, 'right', '2021-08-01'),\n  (11, 1001, 202, 'wrong', '2021-08-02'),\n  (12, 1002, 203, 'right', '2021-08-03'),\n  (13, 1003, 204, 'right', '2021-08-04'),\n  (14, 9999, 205, 'right', '2021-08-05');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "cardinality-safe",
+      "label": "防止 JOIN 膨胀",
+      "success": "查询显式采用半连接或按事实主键去重。",
+      "suggestion": "维表键不唯一时，改用 EXISTS、先去重维表，或 COUNT(DISTINCT p.id)。",
+      "anyOf": [
+        "\\bEXISTS\\s*\\(",
+        "COUNT\\s*\\(\\s*DISTINCT\\s+P\\s*\\.\\s*ID\\s*\\)",
+        "JOIN\\s*\\(\\s*SELECT\\s+DISTINCT\\s+DEVICE_ID"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile_dirty (\n  row_id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile_dirty VALUES\n  (1, 2315, '浙江大学'), (2, 2315, '浙江大学'), (3, 5432, '山东大学');\nINSERT INTO question_practice_detail VALUES\n  (1, 2315, 115, 'right', '2021-08-01'),\n  (2, 2315, 116, 'right', '2021-08-02'),\n  (3, 5432, 117, 'wrong', '2021-08-03');",
+    "tables": [
+      {
+        "name": "user_profile_dirty",
+        "title": "待清洗用户档案",
+        "columns": [
+          {
+            "name": "row_id",
+            "type": "INTEGER",
+            "note": "行主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "故意允许重复"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

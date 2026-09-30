@@ -1,0 +1,106 @@
+{
+  "configVersion": 2,
+  "id": "university-user-and-practice",
+  "number": 8,
+  "title": "学校参与人数与练习次数",
+  "chapter": "分组与统计",
+  "difficulty": "medium",
+  "tags": [
+    "COUNT DISTINCT",
+    "GROUP BY",
+    "指标口径"
+  ],
+  "summary": "在同一 JOIN 结果上计算两个不同粒度的指标。",
+  "task": "对每所产生过练习的学校，返回 university、去重参与用户数 user_cnt、练习记录数 practice_cnt，按学校名升序。",
+  "output": [
+    "university",
+    "user_cnt",
+    "practice_cnt"
+  ],
+  "starterSql": "SELECT u.university\nFROM user_profile AS u\nJOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nGROUP BY u.university\nORDER BY u.university;",
+  "referenceSql": "SELECT\n  u.university,\n  COUNT(DISTINCT u.device_id) AS user_cnt,\n  COUNT(*) AS practice_cnt\nFROM user_profile AS u\nJOIN question_practice_detail AS p\n  ON p.device_id = u.device_id\nGROUP BY u.university\nORDER BY u.university;",
+  "orderSensitive": true,
+  "hints": [
+    "两个指标使用同一批 JOIN 结果，但计数方式不同。",
+    "用户数需要 DISTINCT，练习次数不能 DISTINCT。"
+  ],
+  "analysis": "JOIN 后一位用户会出现多行，所以参与人数需要去重；练习次数保留每一行。这是在事实表粒度和业务指标口径之间切换的基础。",
+  "pitfalls": [
+    "两个指标都 COUNT(*) 会让 user_cnt 退化成练习次数。",
+    "两个指标都 DISTINCT 又会丢掉多次练习。"
+  ],
+  "dialectNote": "语法一致。用户维表 device_id 若不唯一，练习次数仍会被放大，需先治理维表。",
+  "tests": [
+    {
+      "id": "q08-multi-practice",
+      "name": "单人多练与单次参与",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例专门区分一名用户的多次练习与多名用户。",
+      "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES (3001, 'A大学'), (3002, 'A大学'), (3003, 'B大学');\nINSERT INTO question_practice_detail VALUES\n  (20, 3001, 201, 'right', '2021-10-01'), (21, 3001, 202, 'right', '2021-10-02'),\n  (22, 3001, 203, 'wrong', '2021-10-03'), (23, 3002, 204, 'right', '2021-10-04'),\n  (24, 3003, 205, 'wrong', '2021-10-05');"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "two-metrics",
+      "label": "人数与次数分开计量",
+      "success": "参与人数使用 DISTINCT，练习次数保留全部事实行。",
+      "suggestion": "使用 COUNT(DISTINCT device_id) 计算人数，并用 COUNT(*) 计算练习次数。",
+      "allOf": [
+        "COUNT\\s*\\(\\s*DISTINCT\\s+(?:U\\s*\\.\\s*)?DEVICE_ID\\s*\\)",
+        "COUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (\n  device_id INTEGER PRIMARY KEY,\n  university TEXT NOT NULL\n);\n\nCREATE TABLE question_practice_detail (\n  id INTEGER PRIMARY KEY,\n  device_id INTEGER NOT NULL,\n  question_id INTEGER NOT NULL,\n  result TEXT NOT NULL,\n  practice_date TEXT NOT NULL\n);\nCREATE INDEX idx_practice_date\n  ON question_practice_detail(practice_date);\n\nINSERT INTO user_profile VALUES (1001, '浙江大学'), (1002, '浙江大学'), (1003, '山东大学');\nINSERT INTO question_practice_detail VALUES\n  (1, 1001, 101, 'right', '2021-08-01'), (2, 1001, 102, 'wrong', '2021-08-02'),\n  (3, 1002, 103, 'right', '2021-08-03'), (4, 1003, 101, 'wrong', '2021-08-04'),\n  (5, 1003, 102, 'right', '2021-08-05');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "用户档案",
+        "columns": [
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "设备 / 用户唯一标识"
+          },
+          {
+            "name": "university",
+            "type": "TEXT",
+            "note": "所在学校"
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "答题事实表",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "note": "练习记录主键"
+          },
+          {
+            "name": "device_id",
+            "type": "INTEGER",
+            "note": "答题设备"
+          },
+          {
+            "name": "question_id",
+            "type": "INTEGER",
+            "note": "题目 ID"
+          },
+          {
+            "name": "result",
+            "type": "TEXT",
+            "note": "right / wrong"
+          },
+          {
+            "name": "practice_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          }
+        ]
+      }
+    ]
+  }
+}

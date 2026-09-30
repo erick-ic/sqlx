@@ -1,0 +1,82 @@
+{
+  "configVersion": 2,
+  "id": "running-profit-window",
+  "number": 11,
+  "title": "每条利润记录的累计利润",
+  "chapter": "窗口函数",
+  "difficulty": "medium",
+  "tags": [
+    "SUM OVER",
+    "ROWS",
+    "稳定排序"
+  ],
+  "summary": "用窗口 frame 对每条利润明细逐行累计。",
+  "task": "按 profit_date、profit_id 顺序计算每条记录发生后的累计利润。返回 profit_id、profit_date、profit、cumulative_profit，输出顺序与累计顺序一致。",
+  "output": [
+    "profit_id",
+    "profit_date",
+    "profit",
+    "cumulative_profit"
+  ],
+  "starterSql": "SELECT profit_id, profit_date, profit\nFROM daily_profits\nORDER BY profit_date, profit_id;",
+  "referenceSql": "SELECT\n  profit_id,\n  profit_date,\n  profit,\n  SUM(profit) OVER (\n    ORDER BY profit_date, profit_id\n    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n  ) AS cumulative_profit\nFROM daily_profits\nORDER BY profit_date, profit_id;",
+  "orderSensitive": true,
+  "hints": [
+    "使用 SUM(...) OVER (...)，并让窗口排序唯一确定记录顺序。",
+    "显式写出从第一行到当前行的 ROWS frame。"
+  ],
+  "analysis": "只按日期排序时，同日记录属于并列键，默认 RANGE frame 可能一次纳入全部 peers。加入 profit_id 作为 tie-breaker 并显式 ROWS，才能逐记录累加。",
+  "pitfalls": [
+    "窗口内 ORDER BY 不保证最终输出顺序，还需外层 ORDER BY。",
+    "只按日期累计会让同日多笔的先后不确定。"
+  ],
+  "dialectNote": "SQLite 3.25+ 与 MySQL 8.0+ 支持窗口函数；MySQL 5.x 可练习下一题的自连接方案。",
+  "tests": [
+    {
+      "id": "q11-peers",
+      "name": "同日多笔与负数",
+      "visibility": "hidden",
+      "boundaryHint": "隐藏用例同一天有两笔利润，必须按 profit_id 逐条累加。",
+      "setupSql": "CREATE TABLE daily_profits (\n  profit_id INTEGER PRIMARY KEY,\n  profit_date TEXT NOT NULL,\n  profit INTEGER NOT NULL\n);\n\nINSERT INTO daily_profits VALUES\n  (10, '2021-02-01', 100), (11, '2021-02-01', 25),\n  (12, '2021-02-02', -40), (13, '2021-02-03', 10);"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "explicit-window-frame",
+      "label": "窗口边界明确",
+      "success": "窗口使用稳定排序，并显式指定 ROWS frame。",
+      "suggestion": "累计窗口建议按 profit_date、profit_id 排序并显式声明 ROWS BETWEEN ... CURRENT ROW。",
+      "allOf": [
+        "SUM\\s*\\(\\s*PROFIT\\s*\\)\\s*OVER\\s*\\(",
+        "ORDER\\s+BY\\s+PROFIT_DATE\\s*,\\s*PROFIT_ID",
+        "ROWS\\s+BETWEEN\\s+UNBOUNDED\\s+PRECEDING\\s+AND\\s+CURRENT\\s+ROW"
+      ]
+    }
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE daily_profits (\n  profit_id INTEGER PRIMARY KEY,\n  profit_date TEXT NOT NULL,\n  profit INTEGER NOT NULL\n);\n\nINSERT INTO daily_profits VALUES\n  (1, '2021-01-01', 100), (2, '2021-01-02', 200), (3, '2021-01-03', -50);",
+    "tables": [
+      {
+        "name": "daily_profits",
+        "title": "利润明细",
+        "columns": [
+          {
+            "name": "profit_id",
+            "type": "INTEGER",
+            "note": "利润记录主键"
+          },
+          {
+            "name": "profit_date",
+            "type": "TEXT",
+            "note": "ISO 日期 YYYY-MM-DD"
+          },
+          {
+            "name": "profit",
+            "type": "INTEGER",
+            "note": "当笔利润，可为负数"
+          }
+        ]
+      }
+    ]
+  }
+}

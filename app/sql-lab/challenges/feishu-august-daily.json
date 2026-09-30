@@ -1,0 +1,98 @@
+{
+  "configVersion": 2,
+  "id": "feishu-august-daily",
+  "number": 21,
+  "title": "某月每天",
+  "chapter": "日期与过滤",
+  "difficulty": "easy",
+  "tags": [
+    "日期",
+    "GROUP BY",
+    "COUNT"
+  ],
+  "summary": "统计2021年8月每天的练习题目数量，返回 day（日号整数）、question_cnt。",
+  "task": "统计2021年8月每天的练习题目数量，返回 day（日号整数）、question_cnt。只输出存在练习记录的日期，不需要为无记录的日期补零。",
+  "output": [
+    "day",
+    "question_cnt"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE question_practice_detail (id INT NOT NULL, device_id INT NOT NULL, question_id INT NOT NULL, result VARCHAR(32) NOT NULL, date DATE NOT NULL);\nINSERT INTO question_practice_detail VALUES\n  (1, 2138, 111, 'wrong', '2021-05-03'),\n  (2, 3214, 112, 'wrong', '2021-05-09'),\n  (3, 3214, 113, 'wrong', '2021-06-15'),\n  (4, 6543, 111, 'right', '2021-08-13'),\n  (5, 2315, 115, 'right', '2021-08-13'),\n  (6, 2315, 116, 'right', '2021-08-14'),\n  (7, 2315, 117, 'wrong', '2021-08-15'),\n  (8, 3214, 112, 'wrong', '2021-05-09'),\n  (9, 3214, 113, 'wrong', '2021-08-15'),\n  (10, 6543, 111, 'right', '2021-08-13'),\n  (11, 2315, 115, 'right', '2021-08-13'),\n  (12, 2315, 116, 'right', '2021-08-14'),\n  (13, 2315, 117, 'wrong', '2021-08-15'),\n  (14, 3214, 112, 'wrong', '2021-08-16'),\n  (15, 3214, 113, 'wrong', '2021-08-18'),\n  (16, 6543, 111, 'right', '2021-08-13');",
+    "tables": [
+      {
+        "name": "question_practice_detail",
+        "title": "question_practice_detail",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "question_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "result",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "date",
+            "type": "DATE",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT date, COUNT(*) AS question_cnt\nFROM question_practice_detail\nGROUP BY date;",
+  "referenceSql": "SELECT CAST(substr(date, 9, 2) AS INTEGER) AS day, COUNT(*) AS question_cnt FROM question_practice_detail WHERE date >= '2021-08-01' AND date < '2021-09-01' GROUP BY day;",
+  "orderSensitive": false,
+  "hints": [
+    "用左闭右开范围筛选2021年8月。",
+    "提取日号后按日分组计数。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.9（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/847373e2fe8d47b4a2c294bdb5bda8b6\n\n文档用 DAY(date) AS day；本地使用 CAST(substr(date, 9, 2) AS INTEGER)。统计记录而非去重用户，未出现的日期不补零。",
+  "pitfalls": [
+    "仅按月份筛选会混入其他年份。",
+    "<= 2021-08-31 会遗漏当天含时间的记录。"
+  ],
+  "dialectNote": "本地 DAY 未注册；日号使用 CAST(substr(date, 9, 2) AS INTEGER)，MySQL 可使用 DAY(date)。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE question_practice_detail (id INT NOT NULL, device_id INT NOT NULL, question_id INT NOT NULL, result VARCHAR(32) NOT NULL, date DATE NOT NULL);\nINSERT INTO question_practice_detail VALUES\n  (1, 1, 1, 'right', '2020-08-13'),\n  (2, 1, 1, 'right', '2021-08-01'),\n  (3, 1, 1, 'wrong', '2021-08-01'),\n  (4, 2, 1, 'right', '2021-08-31 23:59:59'),\n  (5, 1, 1, 'right', '2021-09-01');",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "month-range",
+      "label": "月份范围筛选",
+      "success": "使用左闭右开日期范围。",
+      "suggestion": "推荐 date >= 月初 AND date < 下月月初，兼容月末带时间的记录，并便于使用日期索引。",
+      "allOf": [
+        "\\bdate\\b\\s*>=\\s*'2021-08-01'",
+        "\\bdate\\b\\s*<\\s*'2021-09-01'"
+      ]
+    },
+    {
+      "id": "daily-count",
+      "label": "练习次数口径",
+      "success": "COUNT(*) 按练习记录计数。",
+      "suggestion": "推荐 COUNT(*) 统计练习记录，不要将去重用户数或题目种类数作为练习次数。",
+      "allOf": [
+        "\\bCOUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "configVersion": 2,
+  "id": "feishu-group-activity",
+  "number": 15,
+  "title": "分组计算练习题",
+  "chapter": "分组与统计",
+  "difficulty": "easy",
+  "tags": [
+    "GROUP BY",
+    "AVG",
+    "ROUND"
+  ],
+  "summary": "分别计算每个学校每种性别的用户数、30天内平均活跃天数和平均发帖数量。",
+  "task": "分别计算每个学校每种性别的用户数、30天内平均活跃天数和平均发帖数量。返回 gender、university、user_num、avg_active_day、avg_question_cnt，平均值保留一位小数，按 gender、university 升序。",
+  "output": [
+    "gender",
+    "university",
+    "user_num",
+    "avg_active_day",
+    "avg_question_cnt"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 FLOAT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 3.4, 7, 2, 12),\n  (2, 3214, 'male', NULL, '复旦大学', 4, 15, 5, 25),\n  (3, 6543, 'female', 20, '北京大学', 3.2, 12, 3, 30),\n  (4, 2315, 'female', 23, '浙江大学', 3.6, 5, 1, 2),\n  (5, 5432, 'male', 25, '山东大学', 3.8, 20, 15, 70),\n  (6, 2131, 'male', 28, '山东大学', 3.3, 15, 7, 13),\n  (7, 4321, 'male', 28, '复旦大学', 3.6, 9, 6, 52);",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "user_profile",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "gender",
+            "type": "VARCHAR(14)",
+            "note": ""
+          },
+          {
+            "name": "age",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "university",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "gpa",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "active_days_within_30",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "question_cnt",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "answer_cnt",
+            "type": "FLOAT",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT gender, university, COUNT(*) AS user_num\nFROM user_profile\nGROUP BY gender, university\nORDER BY gender, university;",
+  "referenceSql": "SELECT gender, university, COUNT(gender) AS user_num, ROUND(AVG(active_days_within_30), 1) AS avg_active_day, ROUND(AVG(question_cnt), 1) AS avg_question_cnt FROM user_profile GROUP BY gender, university ORDER BY gender, university;",
+  "orderSensitive": true,
+  "hints": [
+    "同时按性别和学校分组。",
+    "COUNT 统计人数，AVG 统计均值，ROUND 保留一位。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.3（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/009d8067d2df47fea429afe2e7b9de45\n\n每种性别在每所学校形成独立分组；均值基于用户原始行。",
+  "pitfalls": [
+    "只按学校分组会混合不同性别。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 INT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 3.4, 7, 2, 12),\n  (2, 3214, 'male', NULL, '复旦大学', 4, 15, 5, 25),\n  (3, 6543, 'female', 20, '北京大学', 3.2, 12, 3, 30),\n  (4, 2315, 'female', 23, '浙江大学', 3.6, 5, 1, 2),\n  (5, 5432, 'male', 25, '山东大学', 3.8, 20, 15, 70),\n  (6, 2131, 'male', 28, '山东大学', 3.3, 15, 7, 13),\n  (7, 4321, 'male', 28, '复旦大学', 3.6, 9, 6, 52);\nINSERT INTO user_profile VALUES\n  (8, 8000, 'male', 22, '山东大学', 3.1, 2, 1, 3);",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "group-dimensions",
+      "label": "分组维度明确",
+      "success": "同时按性别与学校分组。",
+      "suggestion": "建议明确写出 gender 与 university 两个分组字段，避免依赖列序号。",
+      "allOf": [
+        "\\bGROUP\\s+BY\\s+[^;]*\\bgender\\b",
+        "\\bGROUP\\s+BY\\s+[^;]*\\buniversity\\b"
+      ]
+    },
+    {
+      "id": "average-rounding",
+      "label": "均值精度明确",
+      "success": "使用 AVG 与 ROUND 表达均值及精度。",
+      "suggestion": "推荐用 AVG 计算均值，再用 ROUND(..., 1) 指定一位小数。",
+      "allOf": [
+        "\\bROUND\\s*\\(\\s*AVG\\s*\\(",
+        "\\bAVG\\s*\\(\\s*(?:\\w+\\.)?active_days_within_30",
+        "\\bAVG\\s*\\(\\s*(?:\\w+\\.)?question_cnt"
+      ]
+    }
+  ]
+}

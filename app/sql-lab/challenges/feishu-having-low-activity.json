@@ -1,0 +1,119 @@
+{
+  "configVersion": 2,
+  "id": "feishu-having-low-activity",
+  "number": 16,
+  "title": "分组过滤练习题",
+  "chapter": "分组与统计",
+  "difficulty": "easy",
+  "tags": [
+    "HAVING",
+    "AVG",
+    "OR"
+  ],
+  "summary": "查询平均发帖数低于5或平均回帖数小于20的学校。",
+  "task": "查询平均发帖数低于5或平均回帖数小于20的学校。返回 university、avg_question_cnt、avg_answer_cnt，平均值保留三位小数；按文档先计算并舍入平均值，再筛选。",
+  "output": [
+    "university",
+    "avg_question_cnt",
+    "avg_answer_cnt"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 INT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 3.4, 7, 2, 12),\n  (2, 3214, 'male', NULL, '复旦大学', 4, 15, 5, 25),\n  (3, 6543, 'female', 20, '北京大学', 3.2, 12, 3, 30),\n  (4, 2315, 'female', 23, '浙江大学', 3.6, 5, 1, 2),\n  (5, 5432, 'male', 25, '山东大学', 3.8, 20, 15, 70),\n  (6, 2131, 'male', 28, '山东大学', 3.3, 15, 7, 13),\n  (7, 4321, 'male', 28, '复旦大学', 3.6, 9, 6, 52);",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "user_profile",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "gender",
+            "type": "VARCHAR(14)",
+            "note": ""
+          },
+          {
+            "name": "age",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "university",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "gpa",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "active_days_within_30",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "question_cnt",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "answer_cnt",
+            "type": "FLOAT",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT\n  university,\n  ROUND(AVG(question_cnt), 3) AS avg_question_cnt,\n  ROUND(AVG(answer_cnt), 3) AS avg_answer_cnt\nFROM user_profile\nGROUP BY university;",
+  "referenceSql": "SELECT university, ROUND(AVG(question_cnt), 3) AS avg_question_cnt, ROUND(AVG(answer_cnt), 3) AS avg_answer_cnt FROM user_profile GROUP BY university HAVING avg_question_cnt < 5 OR avg_answer_cnt < 20;",
+  "orderSensitive": false,
+  "hints": [
+    "聚合后的条件放在 HAVING。",
+    "两个条件用 OR 连接。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.4（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/ddbcedcd9600403296038ee44a172f2d\n\n文档按 ROUND 后的别名进行筛选；若业务要按原始均值筛选，应在 HAVING 使用 AVG 本身。",
+  "pitfalls": [
+    "把 OR 写成 AND 会遗漏学校。",
+    "WHERE 不能直接过滤聚合结果。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 INT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 1, 'male', 20, 'A', 3, 2, 5, 20),\n  (2, 2, 'male', 20, 'B', 3, 2, 4, 30),\n  (3, 3, 'male', 20, 'C', 3, 2, 6, 19),\n  (4, 4, 'male', 20, 'D', 3, 2, 4.9996, 30);",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "aggregate-filter",
+      "label": "聚合后筛选",
+      "success": "使用 HAVING 和 OR 筛选分组结果。",
+      "suggestion": "建议用 HAVING 筛选聚合结果，两个低活跃条件之间使用 OR。",
+      "allOf": [
+        "\\bHAVING\\b",
+        "\\bHAVING\\b[^;]*\\bOR\\b"
+      ]
+    },
+    {
+      "id": "rounded-average",
+      "label": "舍入口径明确",
+      "success": "明确使用 ROUND 与 AVG 计算文档要求的均值。",
+      "suggestion": "推荐使用 ROUND(AVG(...), 3)，并按题目要求筛选舍入后的均值。",
+      "allOf": [
+        "\\bROUND\\s*\\(\\s*AVG\\s*\\("
+      ]
+    }
+  ]
+}

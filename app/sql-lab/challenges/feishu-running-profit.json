@@ -1,0 +1,89 @@
+{
+  "configVersion": 2,
+  "id": "feishu-running-profit",
+  "number": 23,
+  "title": "窗口函数",
+  "chapter": "窗口函数",
+  "difficulty": "medium",
+  "tags": [
+    "SUM OVER",
+    "ROWS"
+  ],
+  "summary": "计算每一天的累计利润，返回 profit_id、profit_date、profit、cumulative_profit，按 profit_date 升序。",
+  "task": "计算每一天的累计利润，返回 profit_id、profit_date、profit、cumulative_profit，按 profit_date 升序。本题每天一条记录。",
+  "output": [
+    "profit_id",
+    "profit_date",
+    "profit",
+    "cumulative_profit"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE daily_profits (profit_id INT NOT NULL, profit_date DATE NOT NULL, profit DECIMAL(10,2) NOT NULL);\nINSERT INTO daily_profits VALUES\n  (1, '2024-01-01', 100),\n  (2, '2024-01-02', 150),\n  (3, '2024-01-03', 200),\n  (4, '2024-01-04', 250),\n  (5, '2024-01-05', 300);",
+    "tables": [
+      {
+        "name": "daily_profits",
+        "title": "daily_profits",
+        "columns": [
+          {
+            "name": "profit_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "profit_date",
+            "type": "DATE",
+            "note": ""
+          },
+          {
+            "name": "profit",
+            "type": "DECIMAL(10,2)",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT profit_id, profit_date, profit\nFROM daily_profits\nORDER BY profit_date;",
+  "referenceSql": "SELECT profit_id, profit_date, profit, SUM(profit) OVER (ORDER BY profit_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_profit FROM daily_profits ORDER BY profit_date;",
+  "orderSensitive": true,
+  "hints": [
+    "窗口从第一行累计到当前行。",
+    "窗口排序和输出排序都按 profit_date。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.11（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/c9b7a2f73eb54a3da4a81f15fd8a3665\n\nSUM(profit) OVER (...) 保留每条明细并计算累计值。文档样例为2024年1月1日至5日，累计100、250、450、700、1000。若一天多笔，可继续练习原有第11题的日期与主键稳定排序。",
+  "pitfalls": [
+    "GROUP BY 会合并明细。",
+    "窗口内排序不自动保证最终输出顺序。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE daily_profits (profit_id INT NOT NULL, profit_date DATE NOT NULL, profit DECIMAL(10,2) NOT NULL);\nINSERT INTO daily_profits VALUES\n  (3, '2024-02-03', -50.25),\n  (1, '2024-02-01', 100.5),\n  (2, '2024-02-02', 25.25);",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "explicit-frame",
+      "label": "累计边界明确",
+      "success": "窗口明确从第一行累计到当前行。",
+      "suggestion": "推荐 SUM(profit) OVER (...)，显式写出 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW。",
+      "allOf": [
+        "\\bSUM\\s*\\(\\s*(?:\\w+\\.)?profit\\s*\\)\\s*OVER\\s*\\(",
+        "\\bROWS\\s+BETWEEN\\s+UNBOUNDED\\s+PRECEDING\\s+AND\\s+CURRENT\\s+ROW"
+      ]
+    },
+    {
+      "id": "output-order",
+      "label": "输出排序明确",
+      "success": "显式按利润日期排列。",
+      "suggestion": "窗口内排序不保证输出顺序，建议最终使用 ORDER BY profit_date。",
+      "allOf": [
+        "\\)\\s+AS\\s+cumulative_profit\\s+FROM\\s+daily_profits\\s+ORDER\\s+BY\\s+profit_date\\b"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "configVersion": 2,
+  "id": "feishu-all-columns",
+  "number": 13,
+  "title": "所有列",
+  "chapter": "基础查询",
+  "difficulty": "easy",
+  "tags": [
+    "SELECT",
+    "所有列"
+  ],
+  "summary": "查询 user_profile 的所有列，按 id、device_id、gender、age、university、province 的列顺序输出。",
+  "task": "查询 user_profile 的所有列，按 id、device_id、gender、age、university、province 的列顺序输出。",
+  "output": [
+    "id",
+    "device_id",
+    "gender",
+    "age",
+    "university",
+    "province"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, province VARCHAR(32) NOT NULL);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 'BeiJing'),\n  (2, 3214, 'male', NULL, '复旦大学', 'Shanghai'),\n  (3, 6543, 'female', 20, '北京大学', 'BeiJing'),\n  (4, 2315, 'female', 23, '浙江大学', 'ZheJiang'),\n  (5, 5432, 'male', 25, '山东大学', 'Shandong');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "user_profile",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "gender",
+            "type": "VARCHAR(14)",
+            "note": ""
+          },
+          {
+            "name": "age",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "university",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "province",
+            "type": "VARCHAR(32)",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT id, device_id, gender\nFROM user_profile;",
+  "referenceSql": "SELECT id, device_id, gender, age, university, province FROM user_profile;",
+  "orderSensitive": false,
+  "hints": [
+    "显式写出六个输出字段。",
+    "保留 age 中的 NULL。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.1（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/f9f82607cac44099a77154a80266234a\n\n显式列名便于控制输出顺序；SELECT * 在当前表结构下也能得到相同结果。",
+  "pitfalls": [
+    "遗漏 province 会导致输出列不完整。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, province VARCHAR(32) NOT NULL);\nINSERT INTO user_profile VALUES\n  (9, 9000, 'female', NULL, '测试大学', 'Test');",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "explicit-columns",
+      "label": "显式列名",
+      "success": "显式列出输出字段，结果结构更清楚。",
+      "suggestion": "建议显式列出六个字段，避免 SELECT * 随表结构变化而改变输出。",
+      "noneOf": [
+        "\\bSELECT\\s+(?:DISTINCT\\s+)?\\*"
+      ]
+    }
+  ]
+}

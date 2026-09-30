@@ -1,0 +1,166 @@
+{
+  "configVersion": 2,
+  "id": "feishu-age-groups",
+  "number": 17,
+  "title": "CASE分支查询",
+  "chapter": "条件表达式",
+  "difficulty": "easy",
+  "tags": [
+    "CASE",
+    "NULL",
+    "COUNT"
+  ],
+  "summary": "将用户划分为25岁以下和25岁及以上两个年龄段，分别统计用户数量。",
+  "task": "将用户划分为25岁以下和25岁及以上两个年龄段，分别统计用户数量。age 为 NULL 也归入25岁以下。返回 age_cnt、number，25岁以下排在前面。",
+  "output": [
+    "age_cnt",
+    "number"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 INT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 3.4, 7, 2, 12),\n  (2, 3214, 'male', NULL, '复旦大学', 4, 15, 5, 25),\n  (3, 6543, 'female', 20, '北京大学', 3.2, 12, 3, 30),\n  (4, 2315, 'female', 23, '浙江大学', 3.6, 5, 1, 2),\n  (5, 5432, 'male', 25, '山东大学', 3.8, 20, 15, 70),\n  (6, 2131, 'male', 28, '山东大学', 3.3, 15, 7, 13),\n  (7, 4321, 'male', 28, '复旦大学', 3.6, 9, 6, 52);\nCREATE TABLE question_practice_detail (id INT NOT NULL, device_id INT NOT NULL, question_id INT NOT NULL, result VARCHAR(32) NOT NULL);\nINSERT INTO question_practice_detail VALUES\n  (1, 2138, 111, 'wrong'),\n  (2, 3214, 112, 'wrong'),\n  (3, 3214, 113, 'wrong'),\n  (4, 6543, 111, 'right'),\n  (5, 2315, 115, 'right');\nCREATE TABLE question_detail (id INT NOT NULL, question_id INT NOT NULL, difficult_level VARCHAR(32) NOT NULL);",
+    "tables": [
+      {
+        "name": "question_detail",
+        "title": "question_detail",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "question_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "difficult_level",
+            "type": "VARCHAR(32)",
+            "note": ""
+          }
+        ]
+      },
+      {
+        "name": "question_practice_detail",
+        "title": "question_practice_detail",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "question_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "result",
+            "type": "VARCHAR(32)",
+            "note": ""
+          }
+        ]
+      },
+      {
+        "name": "user_profile",
+        "title": "user_profile",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "gender",
+            "type": "VARCHAR(14)",
+            "note": ""
+          },
+          {
+            "name": "age",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "university",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "gpa",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "active_days_within_30",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "question_cnt",
+            "type": "FLOAT",
+            "note": ""
+          },
+          {
+            "name": "answer_cnt",
+            "type": "FLOAT",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT age, COUNT(*) AS number\nFROM user_profile\nGROUP BY age;",
+  "referenceSql": "SELECT CASE WHEN age < 25 OR age IS NULL THEN '25岁以下' ELSE '25岁及以上' END AS age_cnt, COUNT(*) AS number FROM user_profile GROUP BY age_cnt ORDER BY CASE WHEN age_cnt = '25岁以下' THEN 1 ELSE 2 END;",
+  "orderSensitive": true,
+  "hints": [
+    "小于25或为 NULL 时使用第一个分支。",
+    "COUNT(*) 包含 age 为 NULL 的用户。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.5（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/30f9f470390a4a8a8dd3b8e1f8c7a9fa\n\n先 CASE 分类，再按分类计数。25岁本身归入25岁及以上。",
+  "pitfalls": [
+    "COUNT(age) 会漏算未知年龄。",
+    "NULL < 25 不为真，需显式 IS NULL。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, gpa FLOAT, active_days_within_30 INT, question_cnt FLOAT, answer_cnt FLOAT);\nINSERT INTO user_profile VALUES\n  (1, 1, 'male', 24, 'A', 3, 1, 1, 1),\n  (2, 2, 'female', 25, 'A', 3, 1, 1, 1),\n  (3, 3, 'male', NULL, 'A', 3, 1, 1, 1);",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "age-case",
+      "label": "年龄分类可读",
+      "success": "CASE 清晰表达年龄分类。",
+      "suggestion": "推荐使用 CASE 表达两个年龄段，明确25岁边界及未知年龄的归属。",
+      "allOf": [
+        "\\bCASE\\b",
+        "\\bWHEN\\b",
+        "\\bEND\\b"
+      ]
+    },
+    {
+      "id": "include-null",
+      "label": "未知年龄计数",
+      "success": "COUNT(*) 保留未知年龄用户。",
+      "suggestion": "建议使用 COUNT(*) 统计分类后的用户数，避免 COUNT(age) 排除 NULL。",
+      "allOf": [
+        "\\bCOUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ]
+}

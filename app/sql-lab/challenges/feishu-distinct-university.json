@@ -1,0 +1,91 @@
+{
+  "configVersion": 2,
+  "id": "feishu-distinct-university",
+  "number": 14,
+  "title": "去重",
+  "chapter": "基础查询",
+  "difficulty": "easy",
+  "tags": [
+    "DISTINCT",
+    "GROUP BY"
+  ],
+  "summary": "查询用户所在的学校，输出 university；每所学校只出现一次。",
+  "task": "查询用户所在的学校，输出 university；每所学校只出现一次。",
+  "output": [
+    "university"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, province VARCHAR(32) NOT NULL);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 'BeiJing'),\n  (2, 3214, 'male', NULL, '复旦大学', 'Shanghai'),\n  (3, 6543, 'female', 20, '北京大学', 'BeiJing'),\n  (4, 2315, 'female', 23, '浙江大学', 'ZheJiang'),\n  (5, 5432, 'male', 25, '山东大学', 'Shandong');",
+    "tables": [
+      {
+        "name": "user_profile",
+        "title": "user_profile",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "gender",
+            "type": "VARCHAR(14)",
+            "note": ""
+          },
+          {
+            "name": "age",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "university",
+            "type": "VARCHAR(32)",
+            "note": ""
+          },
+          {
+            "name": "province",
+            "type": "VARCHAR(32)",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT university\nFROM user_profile;",
+  "referenceSql": "SELECT DISTINCT university FROM user_profile;",
+  "orderSensitive": false,
+  "hints": [
+    "使用 DISTINCT 去掉重复学校。",
+    "也可 GROUP BY university，仅输出 university。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.2（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/82ebd89f12cf48efba0fecb392e193dd\n\nSELECT DISTINCT university FROM user_profile; 或 SELECT university FROM user_profile GROUP BY university;",
+  "pitfalls": [
+    "不能按用户 id 分组，否则同一学校仍会重复。"
+  ],
+  "dialectNote": "初始化脚本保留文档字段与样例值；查询使用本地 SQLite 与 MySQL 通用写法。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_profile (id INT NOT NULL, device_id INT NOT NULL, gender VARCHAR(14) NOT NULL, age INT, university VARCHAR(32) NOT NULL, province VARCHAR(32) NOT NULL);\nINSERT INTO user_profile VALUES\n  (1, 2138, 'male', 21, '北京大学', 'BeiJing'),\n  (2, 3214, 'male', NULL, '复旦大学', 'Shanghai'),\n  (3, 6543, 'female', 20, '北京大学', 'BeiJing'),\n  (4, 2315, 'female', 23, '浙江大学', 'ZheJiang'),\n  (5, 5432, 'male', 25, '山东大学', 'Shandong');\nINSERT INTO user_profile VALUES\n  (6, 6000, 'female', 22, '北京大学', 'BeiJing');",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "deduplicate",
+      "label": "去重意图明确",
+      "success": "使用 DISTINCT 或按学校分组表达去重。",
+      "suggestion": "推荐使用 SELECT DISTINCT university，或只按 university 分组。",
+      "anyOf": [
+        "\\bSELECT\\s+DISTINCT\\b",
+        "\\bGROUP\\s+BY\\s+(?:\\w+\\.)?university\\b"
+      ]
+    }
+  ]
+}

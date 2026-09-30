@@ -1,3 +1,14 @@
+import f1 from "./challenges/feishu-all-columns.json";
+import f2 from "./challenges/feishu-distinct-university.json";
+import f3 from "./challenges/feishu-group-activity.json";
+import f4 from "./challenges/feishu-having-low-activity.json";
+import f5 from "./challenges/feishu-age-groups.json";
+import f6 from "./challenges/feishu-zju-detail.json";
+import f7 from "./challenges/feishu-school-difficulty-average.json";
+import f8 from "./challenges/feishu-profile-age.json";
+import f9 from "./challenges/feishu-august-daily.json";
+import f10 from "./challenges/feishu-august-totals.json";
+import f11 from "./challenges/feishu-running-profit.json";
 import q1 from "./challenges/date-range-detail.json";
 import q2 from "./challenges/august-metrics.json";
 import q3 from "./challenges/zju-join-detail.json";
@@ -15,11 +26,28 @@ import type { SqlChallenge } from "./types";
 
 export const challenges = parseChallengeCatalog([
   q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12,
+  f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11,
 ]);
 
-/** Chapters follow their first appearance in the ordered catalog. */
-export function getChapters(catalog: SqlChallenge[]): string[] {
-  return [...new Set(catalog.map((challenge) => challenge.chapter))];
+const chapterOrder = [
+  "基础查询",
+  "条件表达式",
+  "字符串函数",
+  "日期与过滤",
+  "JOIN 与子查询",
+  "分组与统计",
+  "窗口函数",
+];
+
+/** Built-in chapters follow the learning sequence; custom chapters retain their order. */
+export function getChapters(catalog: SqlChallenge[], preferred: string[] = []): string[] {
+  const chapters = [...new Set(catalog.map((challenge) => challenge.chapter))];
+  const selected = [...new Set(preferred)].filter((chapter) => chapters.includes(chapter));
+  return [
+    ...selected,
+    ...chapterOrder.filter((chapter) => chapters.includes(chapter) && !selected.includes(chapter)),
+    ...chapters.filter((chapter) => !chapterOrder.includes(chapter)),
+  ].filter((chapter, index, all) => all.indexOf(chapter) === index);
 }
 
 export function getChallenge(id: string | null | undefined) {

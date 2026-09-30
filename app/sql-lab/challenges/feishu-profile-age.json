@@ -1,0 +1,92 @@
+{
+  "configVersion": 2,
+  "id": "feishu-profile-age",
+  "number": 20,
+  "title": "字段截取",
+  "chapter": "字符串函数",
+  "difficulty": "medium",
+  "tags": [
+    "字符串截取",
+    "GROUP BY"
+  ],
+  "summary": "参赛申请的 profile 按身高,体重,年龄,性别存储。",
+  "task": "参赛申请的 profile 按身高,体重,年龄,性别存储。截取第三段年龄，统计各年龄的参赛人数，返回 age（字符串）、number。每行是一份申请，重复 id 不影响计数。",
+  "output": [
+    "age",
+    "number"
+  ],
+  "dataSource": {
+    "setupSql": "CREATE TABLE user_submit (id INT NOT NULL, device_id INT NOT NULL, profile VARCHAR(100) NOT NULL, blog_url VARCHAR(100) NOT NULL);\nINSERT INTO user_submit VALUES\n  (1, 2138, '180cm,75kg,27,male', 'http:/url/bisdgboy777'),\n  (1, 3214, '165cm,45kg,26,female', 'http:/url/dkittycc'),\n  (1, 6543, '178cm,65kg,25,male', 'http:/url/tigaer'),\n  (1, 4321, '171cm,55kg,23,female', 'http:/url/uhsksd'),\n  (1, 2131, '168cm,45kg,22,female', 'http:/url/sysdney');",
+    "tables": [
+      {
+        "name": "user_submit",
+        "title": "user_submit",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "device_id",
+            "type": "INT",
+            "note": ""
+          },
+          {
+            "name": "profile",
+            "type": "VARCHAR(100)",
+            "note": ""
+          },
+          {
+            "name": "blog_url",
+            "type": "VARCHAR(100)",
+            "note": ""
+          }
+        ]
+      }
+    ]
+  },
+  "starterSql": "SELECT profile\nFROM user_submit;",
+  "referenceSql": "WITH parts AS (SELECT substr(profile, instr(profile, ',') + 1) AS tail FROM user_submit), ages AS (SELECT substr(tail, instr(tail, ',') + 1) AS age_tail FROM parts) SELECT substr(age_tail, 1, instr(age_tail, ',') - 1) AS age, COUNT(*) AS number FROM ages GROUP BY age;",
+  "orderSensitive": false,
+  "hints": [
+    "先去掉前两段，得到年龄,性别。",
+    "截取下一个逗号前的年龄并分组。"
+  ],
+  "analysis": "来源：飞书《实战用例》1.8（2026-09-30 核对）。原题：https://www.nowcoder.com/practice/b8d8a87fe1fc415c96f355dc62bdd12f\n\n文档 MySQL 写法：SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(profile, ',', 3), ',', -1) AS age, COUNT(*) AS number FROM user_submit GROUP BY age; 本地改用 substr + instr 两次去掉前缀，保持年龄为字符串。",
+  "pitfalls": [
+    "不能固定字符位置，身高和体重的长度可能变化。",
+    "文档中的 id 均为1，不应给该字段添加唯一约束或去重计数。"
+  ],
+  "dialectNote": "SQLite 不支持 SUBSTRING_INDEX；参考答案使用 substr、instr，MySQL 原文写法见解析。",
+  "tests": [
+    {
+      "id": "boundary",
+      "name": "边界用例",
+      "visibility": "hidden",
+      "setupSql": "CREATE TABLE user_submit (id INT NOT NULL, device_id INT NOT NULL, profile VARCHAR(100) NOT NULL, blog_url VARCHAR(100) NOT NULL);\nINSERT INTO user_submit VALUES\n  (1, 1, '9cm,5kg,27,male', 'a'),\n  (1, 2, '180cm,100kg,27,female', 'b'),\n  (1, 3, '170cm,60kg,9,male', 'c');",
+      "boundaryHint": "检查题目描述中的分组、NULL 或边界条件。"
+    }
+  ],
+  "qualityChecks": [
+    {
+      "id": "delimiter-extraction",
+      "label": "按分隔符截取",
+      "success": "使用分隔符位置提取，适应字段长度变化。",
+      "suggestion": "建议通过 instr 定位逗号后使用 substr，或在 MySQL 使用 SUBSTRING_INDEX，避免固定字符位置。",
+      "anyOf": [
+        "\\bINSTR\\s*\\(",
+        "\\bSUBSTRING_INDEX\\s*\\("
+      ]
+    },
+    {
+      "id": "count-applications",
+      "label": "按申请行计数",
+      "success": "COUNT(*) 按申请行计数。",
+      "suggestion": "推荐 COUNT(*)；样例 id 不唯一，不能用 COUNT(DISTINCT id) 统计申请人数。",
+      "allOf": [
+        "\\bCOUNT\\s*\\(\\s*\\*\\s*\\)"
+      ]
+    }
+  ]
+}

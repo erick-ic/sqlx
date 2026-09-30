@@ -645,6 +645,7 @@ kbd {
   margin: 6px 0 0;
   font-size: 15px;
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .content-section {
@@ -1821,10 +1822,7 @@ kbd {
 .switch-confirm-dialog .management-dialog-header { position: relative; flex-direction: column; justify-content: center; gap: 10px; padding: 26px 24px 8px; border-bottom: 0; text-align: center; }
 .switch-confirm-dialog .management-dialog-header::before { content: "!"; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #fef2f2; color: #b91c1c; font-size: 20px; font-weight: 700; }
 .switch-confirm-dialog .management-dialog-header h2 { font-size: 18px; }
-.switch-confirm-dialog .management-dialog-header .ghost-button { position: absolute; top: 14px; right: 14px; min-width: 28px; width: 28px; height: 28px; padding: 0; border: 0; background: transparent; color: #64748b; font-size: 0; }
-.switch-confirm-dialog .management-dialog-header .ghost-button::after { content: "×"; font-size: 24px; font-weight: 400; line-height: 1; }
-.switch-confirm-dialog .management-dialog-header .ghost-button:hover { border: 0; background: transparent; color: #b91c1c; }
-.switch-confirm-dialog .management-dialog-header .ghost-button:focus-visible { outline: 2px solid #b91c1c; outline-offset: 2px; }
+.switch-confirm-dialog .management-dialog-header .dialog-close-button { position: absolute; top: 14px; right: 14px; }
 .switch-confirm-dialog .management-dialog-content { flex: 0 1 auto; }
 .switch-confirm-dialog .management-body { flex: none; padding: 0 24px 22px; overflow: visible; }
 .switch-confirm-dialog .management-body p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.6; text-align: center; }
@@ -1834,6 +1832,10 @@ kbd {
 .switch-confirm-dialog .management-footer .danger-button.filled:hover { background: #991b1b; }
 .management-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .management-dialog-header h2 { font-size: 20px; margin: 0; }
+.dialog-close-button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; transition: color 150ms ease, background-color 150ms ease; }
+.dialog-close-button:hover:not(:disabled), .dialog-close-button:focus-visible { background: #eef2ff; color: #4f46e5; }
+.dialog-close-button:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+.dialog-close-button:disabled { opacity: .4; cursor: not-allowed; }
 .management-dialog-content { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .management-dialog form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .management-scroll-region { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
@@ -1974,3 +1976,65 @@ kbd {
   .top-progress { display: flex; width: 200px; }
 }
 @media (prefers-reduced-motion: reduce) { .mini-progress i { transition: none; } }
+
+.chapter-order-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 8px; }
+.chapter-order-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.chapter-order-number { min-width: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chapter-order-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chapter-order-list .secondary-button { min-width: 36px; padding: 8px; }
+
+/* Allow prose and flex/grid children to shrink around unbroken URLs and identifiers. */
+.problem-header, .problem-content, .result-body, .management-dialog { overflow-wrap: anywhere; }
+.problem-content, .source-preview, .content-section, .schema-card,
+.code-block-wrap, .table-scroll, .result-table-wrap,
+.management-dialog-content, .management-body, .management-scroll-region { min-width: 0; max-width: 100%; }
+.problem-title-row, .tag-list, .field-list, .solution-heading,
+.schema-title, .case-message, .management-footer, .management-footer > div { flex-wrap: wrap; }
+.solution-heading > div, .dialect-note > div, .run-summary > div,
+.quality-item-heading strong, .management-dialog-header h2,
+.import-preview li strong, .delete-question-row > span { min-width: 0; }
+.field-list code { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.schema-title code { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.schema-title > small, .schema-title::before, .dialect-note > svg,
+.content-section h2 > svg, .quality-item-heading > svg { flex-shrink: 0; }
+.management-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.column-editor { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.4fr) auto; }
+.management-tabs { overflow-wrap: anywhere; }
+.management-footer > div { min-width: 0; max-width: 100%; }
+.case-message span { min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; }
+.nav-section h2 { min-width: 0; overflow-wrap: anywhere; }
+/* SQL and data retain their whitespace and scroll within their own containers. */
+.code-block, .data-table, .sql-editor, .sql-highlight { overflow-wrap: normal; word-break: normal; }
+@media (max-width: 600px) {
+  .management-grid { grid-template-columns: minmax(0, 1fr); }
+  .column-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.workspace-loading { height: 100dvh; display: flex; flex-direction: column; background: var(--panel); }
+.workspace-loading-header { height: 54px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+.workspace-loading-header > svg { color: var(--muted); }
+.workspace-loading-header strong { font-size: 15px; }
+.workspace-loading-header span { margin-left: auto; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+.workspace-loading-toolbar { height: 54px; display: flex; align-items: center; gap: 8px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+.workspace-loading i { display: block; height: 12px; border-radius: 5px; background: #f0f1f4; }
+.workspace-loading-toolbar i { width: 80px; height: 32px; }
+.workspace-loading-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 258px minmax(0, .92fr) minmax(0, 1.24fr); }
+.workspace-loading-nav, .workspace-loading-problem { padding: 24px; border-right: 1px solid var(--line); }
+.workspace-loading-nav i { height: 22px; margin-bottom: 24px; }
+.workspace-loading-nav i:nth-child(3n) { width: 65%; }
+.workspace-loading-problem i { margin-bottom: 16px; }
+.workspace-loading-problem i:first-child { width: 35%; height: 24px; }
+.workspace-loading-problem i:nth-child(3) { width: 70%; }
+.workspace-loading-problem > div { height: 100px; border: 1px solid #e4e0fb; border-radius: 8px; background: #f8f7ff; margin: 44px 0 32px; }
+.workspace-loading-code { display: flex; flex-direction: column; }
+.workspace-loading-code > div { height: 46%; background: var(--editor); border-top: 48px solid var(--editor-raised); }
+.workspace-loading-code section { padding: 24px; border-top: 8px solid var(--panel-soft); }
+.workspace-loading-code i { width: 40%; margin-bottom: 16px; }
+.source-load-status { min-height: 20px; margin-bottom: 8px; }
+@media (max-width: 1199px) { .workspace-loading-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.15fr); } .workspace-loading-nav { display: none; } }
+@media (max-width: 959px) { .workspace-loading-grid { grid-template-columns: minmax(0, 1fr); } .workspace-loading-code { display: none; } .workspace-loading-header { padding: 0 12px; } .workspace-loading-header span { max-width: 50%; } }
+@media (prefers-reduced-motion: reduce) { .workspace-loading .spin { animation: none; } }
+
+/* Center labels within each tab so the underline shares the same midpoint. */
+.content-tabs button, .result-tabs button { justify-content: center; text-align: center; }
+.content-tabs button::after, .result-tabs button::after { left: 50%; right: auto; width: calc(100% - 16px); transform: translateX(-50%); }

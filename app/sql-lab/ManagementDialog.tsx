@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { X } from "lucide-react";
 
 export default function ManagementDialog({ title, busy = false, onClose, children, compact = false, className = "" }: {
   title: string; busy?: boolean; onClose: () => void; children: ReactNode; compact?: boolean; className?: string;
@@ -43,7 +44,7 @@ export default function ManagementDialog({ title, busy = false, onClose, childre
       event.preventDefault();
       if (!busy) onClose();
     }}>
-    <header className="management-dialog-header"><h2>{title}</h2><button type="button" className="ghost-button" disabled={busy} onClick={onClose} aria-label={`关闭${title}`}>关闭</button></header>
+    <header className="management-dialog-header"><h2>{title}</h2><button type="button" className="dialog-close-button" disabled={busy} onClick={onClose} aria-label={`关闭${title}`} title="关闭"><X size={20} aria-hidden="true" /></button></header>
     <div className="management-dialog-content">{children}</div>
   </dialog>;
 }

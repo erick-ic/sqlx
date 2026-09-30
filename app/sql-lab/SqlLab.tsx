@@ -28,8 +28,10 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { judgeChallenge } from "./judge";
 import { getChapters, challenges as defaultChallenges } from "./problems";
+import { appendMissingChallenges, FEISHU_UPDATE_STORAGE_KEY, CHAPTER_UPDATE_STORAGE_KEY, updateFeishuChapters, updateGenericStarterSql, removeStarterComments, addMissingQualityChecks } from "./catalog-updates";
 import ChallengeEditor from "./ChallengeEditor";
 import CatalogTools from "./CatalogTools";
+import ChapterOrderDialog from "./ChapterOrderDialog";
 import ChallengeSourceContent from "./ChallengeSourceContent";
 import CatalogImportDialog from "./CatalogImportDialog";
 import DeleteChallengesDialog from "./DeleteChallengesDialog";
@@ -364,6 +366,8 @@ function ResultPanel({
 }
 
 export default function SqlLab() {
+  const [chapterOrder, setChapterOrder] = useState<string[]>([]);
+  const [sortingChapters, setSortingChapters] = useState(false);
   const [challenges, setChallenges] = useState(defaultChallenges);
   const [editing, setEditing] = useState<{ challenge: SqlChallenge; creating: boolean } | null>(null);
   const [importing, setImporting] = useState(false);
@@ -426,11 +430,50 @@ export default function SqlLab() {
       } catch (error) {
         setCatalogError(`本地题库加载失败，已显示内置题库：${error instanceof Error ? error.message : "配置损坏"}`);
       }
+      try {
+        if (localStorage.getItem(FEISHU_UPDATE_STORAGE_KEY) !== "applied") {
+          const update = appendMissingChallenges(catalog, defaultChallenges.filter((item) => item.id.startsWith("feishu-")));
+          catalog = update.catalog;
+          // Persist the catalog before its marker so a failed write can be retried.
+          if (update.added > 0) {
+            localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+            setCatalogNotice(`已补充 ${update.added} 道飞书实战题，保留原有题目和学习记录。`);
+          }
+          localStorage.setItem(FEISHU_UPDATE_STORAGE_KEY, "applied");
+        }
+        if (localStorage.getItem(CHAPTER_UPDATE_STORAGE_KEY) !== "applied") {
+          const update = updateFeishuChapters(catalog, defaultChallenges);
+          catalog = update.catalog;
+          if (update.changed > 0) {
+            localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+            setCatalogNotice(`已按知识点调整 ${update.changed} 道题的章节。`);
+          }
+          localStorage.setItem(CHAPTER_UPDATE_STORAGE_KEY, "applied");
+        }
+        const starterUpdate = updateGenericStarterSql(catalog, defaultChallenges);
+        catalog = starterUpdate.catalog;
+        if (starterUpdate.changed > 0) {
+          localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+          setCatalogNotice(`已优化 ${starterUpdate.changed} 道题的初始代码。`);
+        }
+        const commentUpdate = removeStarterComments(catalog);
+        catalog = commentUpdate.catalog;
+        if (commentUpdate.changed > 0) localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+        const qualityUpdate = addMissingQualityChecks(catalog, defaultChallenges);
+        catalog = qualityUpdate.catalog;
+        if (qualityUpdate.changed > 0) localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+      } catch (error) {
+        setCatalogError(`飞书题库更新未能保存：${error instanceof Error ? error.message : "存储不可用"}；请检查浏览器存储后刷新重试。`);
+      }
       setChallenges(catalog);
       const read = (key: string) => {
         try { return localStorage.getItem(key); }
         catch { return null; }
       };
+      try {
+        const savedOrder: unknown = JSON.parse(read("sql-practice:v1:chapter-order") ?? "[]");
+        if (Array.isArray(savedOrder) && savedOrder.every((item) => typeof item === "string")) setChapterOrder(savedOrder);
+      } catch { /* Invalid preferences fall back to the default learning sequence. */ }
       const storedProgress = parseProgress(read(STORAGE.progress));
       const storedDrafts = Object.fromEntries(Object.entries(parseDrafts(read(STORAGE.drafts)))
         .filter(([id]) => storedProgress[id]?.passed && catalog.some((item) => item.id === id)));
@@ -659,6 +702,7 @@ export default function SqlLab() {
           setEditing({ challenge: next, creating: true });
         }}>新增题目</button>
         <button type="button" className="secondary-button" disabled={!hydrated || running || !challenges.length} onClick={() => setEditing({ challenge, creating: false })}>编辑当前题目</button>
+        <button type="button" className="secondary-button" disabled={!hydrated || running || getChapters(challenges).length < 2} onClick={() => setSortingChapters(true)}>章节排序</button>
         <button type="button" className="danger-button" disabled={!hydrated || running || !challenges.length} onClick={() => { setCatalogError(""); setDeleting(true); }}>删除题目</button>
       </div>
     </div>
@@ -666,7 +710,11 @@ export default function SqlLab() {
       {catalogError && !deleting ? <div className="catalog-toast catalog-toast-error" role="alert"><AlertCircle size={18} aria-hidden="true" /><p>{catalogError}</p><button type="button" aria-label="关闭错误提示" onClick={() => setCatalogError("")}><X size={16} /></button></div> : null}
       {catalogNotice ? <div className="catalog-toast" role="status"><CheckCircle2 size={18} aria-hidden="true" /><p>{catalogNotice}</p><button type="button" aria-label="关闭操作提示" onClick={() => setCatalogNotice("")}><X size={16} /></button></div> : null}
     </div>
-    {editing ? <ChallengeEditor chapters={getChapters(challenges)} challenge={editing.challenge} creating={editing.creating} onSave={saveConfig} onClose={() => setEditing(null)} /> : null}
+    {sortingChapters ? <ChapterOrderDialog chapters={getChapters(challenges, chapterOrder)} defaults={getChapters(challenges)} onClose={() => setSortingChapters(false)} onSave={(order) => {
+      localStorage.setItem("sql-practice:v1:chapter-order", JSON.stringify(order));
+      setChapterOrder(order); setSortingChapters(false); setCatalogNotice("已保存章节顺序。");
+    }} /> : null}
+    {editing ? <ChallengeEditor chapters={getChapters(challenges, chapterOrder)} challenge={editing.challenge} creating={editing.creating} onSave={saveConfig} onClose={() => setEditing(null)} /> : null}
     {importing ? <CatalogImportDialog current={challenges} onImport={replaceCatalog} onClose={() => setImporting(false)} /> : null}
     {deleting ? <DeleteChallengesDialog challenges={challenges} error={catalogError} onDelete={removeConfig} onClose={() => setDeleting(false)} /> : null}
     {pendingChallenge ? <ManagementDialog title="放弃当前修改？" onClose={() => setPendingChallenge(null)} className="switch-confirm-dialog" compact>
@@ -674,6 +722,16 @@ export default function SqlLab() {
       <footer className="management-footer"><div><button type="button" className="secondary-button" onClick={() => setPendingChallenge(null)}>继续编辑</button><button type="button" className="danger-button filled" onClick={() => { switchChallenge(pendingChallenge); setPendingChallenge(null); }}>丢弃并切换</button></div></footer>
     </ManagementDialog> : null}
   </>;
+
+  if (!hydrated) return <div className="workspace-loading" aria-busy="true">
+    <header className="workspace-loading-header"><Database size={22} aria-hidden="true" /><strong>SQL 实战练习</strong><span role="status"><LoaderCircle size={15} className="spin" aria-hidden="true" />正在恢复工作区…</span></header>
+    <div className="workspace-loading-toolbar" aria-hidden="true"><i /><i /><i /></div>
+    <div className="workspace-loading-grid" aria-hidden="true">
+      <div className="workspace-loading-nav">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</div>
+      <div className="workspace-loading-problem"><i /><i /><i /><div /><i /><i /></div>
+      <div className="workspace-loading-code"><div /><section><i /><i /></section></div>
+    </div>
+  </div>;
 
   if (!challenges.length) return <div className="empty-catalog"><h1>SQL 实战练习</h1><p>题库为空，新增题目并配置本题的数据源 SQL。</p>{tools}{manager}</div>;
 
@@ -717,7 +775,7 @@ export default function SqlLab() {
             ))}
           </div>
           <div className="challenge-list">
-            {getChapters(challenges).map((chapter) => {
+            {getChapters(challenges, chapterOrder).map((chapter) => {
               const chapterChallenges = filteredChallenges.filter((item) => item.chapter === chapter);
               if (chapterChallenges.length === 0) return null;
               return (

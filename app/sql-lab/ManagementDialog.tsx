@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-export default function ManagementDialog({ title, busy = false, onClose, children, compact = false }: {
-  title: string; busy?: boolean; onClose: () => void; children: ReactNode; compact?: boolean;
+export default function ManagementDialog({ title, busy = false, onClose, children, compact = false, className = "" }: {
+  title: string; busy?: boolean; onClose: () => void; children: ReactNode; compact?: boolean; className?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const pressedBackdrop = useRef(false);
@@ -36,7 +36,7 @@ export default function ManagementDialog({ title, busy = false, onClose, childre
       element.removeEventListener("click", handleClick);
     };
   }, [busy, onClose]);
-  return <dialog ref={dialog} className={`management-dialog ${compact ? "compact-dialog" : ""}`} aria-label={title}
+  return <dialog ref={dialog} className={`management-dialog ${compact ? "compact-dialog" : ""} ${className}`} aria-label={title}
     onCancel={(event) => {
       // File inputs also emit cancel; only a cancel from this dialog closes it.
       if (event.target !== event.currentTarget) return;

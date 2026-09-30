@@ -20,6 +20,6 @@ export default function ChallengeSourceContent({ challenge }: { challenge: SqlCh
   return <>
     {!inspection && !error ? <p className="section-note" role="status">正在从本题 SQL 读取表结构和样例数据…</p> : null}
     {error ? <p className="config-error" role="alert">{error}</p> : null}
-    <DataSourcePreview inspection={inspection ?? { tables: challenge.dataSource.tables, samples: [] }} />
+    <DataSourcePreview inspection={inspection ?? { tables: challenge.dataSource.tables, samples: [] }} collapsible />
   </>;
 }

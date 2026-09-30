@@ -25,7 +25,7 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { judgeChallenge } from "./judge";
 import { getChapters, challenges as defaultChallenges } from "./problems";
 import ChallengeEditor from "./ChallengeEditor";
@@ -33,6 +33,8 @@ import CatalogTools from "./CatalogTools";
 import ChallengeSourceContent from "./ChallengeSourceContent";
 import CatalogImportDialog from "./CatalogImportDialog";
 import DeleteChallengesDialog from "./DeleteChallengesDialog";
+import ManagementDialog from "./ManagementDialog";
+import SqlEditor from "./SqlEditor";
 import { exportCatalog, unchangedChallengeIds } from "./catalog-transfer";
 import { CATALOG_STORAGE_KEY, createChallengeTemplate, parseChallengeCatalog, saveChallenge } from "./challenge-config";
 import { parseDrafts, parseProgress, parsePreferences, type Filter, type ProgressEntry, type ProgressState, type DraftState } from "./local-state";
@@ -50,9 +52,12 @@ type MobileTab = "problem" | "code" | "result";
 
 const STORAGE = {
   progress: "sql-practice:v1:progress",
-  drafts: "sql-practice:v1:drafts",
+  drafts: "sql-practice:v1:accepted-sql",
+  legacyDrafts: "sql-practice:v1:drafts",
   preferences: "sql-practice:v1:preferences",
 } as const;
+const EDITOR_SIZE_STORAGE_KEY = "sql-practice:v1:editor-size";
+const DEFAULT_EDITOR_PERCENT = 56;
 
 const difficultyLabel = {
   easy: "简单",
@@ -161,7 +166,7 @@ function ProblemContent({ challenge }: { challenge: SqlChallenge }) {
   return (
     <div className="problem-content">
       <section className="task-callout" aria-labelledby="task-title">
-        <span className="section-kicker">业务目标</span>
+        <span className="section-kicker">题目要求</span>
         <p id="task-title">{challenge.task}</p>
       </section>
 
@@ -176,12 +181,12 @@ function ProblemContent({ challenge }: { challenge: SqlChallenge }) {
       </section>
 
       <section className="content-section">
-        <h2><Table2 size={16} /> 表结构与样例数据</h2>
+        <h2><Table2 size={16} /> 数据源 SQL · 表结构与样例数据</h2>
         <ChallengeSourceContent key={`${challenge.id}:${challenge.dataSource.setupSql}`} challenge={challenge} />
       </section>
 
       <section className="content-section hints-section">
-        <h2><Lightbulb size={16} /> 逐步提示</h2>
+        <h2><Lightbulb size={16} /> 提示</h2>
         {challenge.hints.map((hint, index) => (
           <details key={hint} className="hint-item">
             <summary>提示 {index + 1}<ChevronRight size={15} /></summary>
@@ -199,12 +204,12 @@ function AnalysisContent({ challenge }: { challenge: SqlChallenge }) {
   return (
     <div className="problem-content analysis-content">
       <section className="content-section analysis-lead">
-        <span className="section-kicker">核心思路</span>
+        <span className="section-kicker">解题解析</span>
         <p>{challenge.analysis}</p>
       </section>
 
       <section className="content-section">
-        <h2>常见误区</h2>
+        <h2>易错点</h2>
         <ul className="pitfall-list">
           {challenge.pitfalls.map((pitfall) => <li key={pitfall}>{pitfall}</li>)}
         </ul>
@@ -213,7 +218,7 @@ function AnalysisContent({ challenge }: { challenge: SqlChallenge }) {
       <section className="content-section">
         <div className="solution-heading">
           <div>
-            <h2><Code2 size={16} /> 参考 SQL</h2>
+            <h2><Code2 size={16} /> 参考答案</h2>
             <p>先独立完成，再对照列名、粒度和边界条件。</p>
           </div>
           <button className="secondary-button compact" type="button" onClick={() => setShowAnswer((value) => !value)}>
@@ -226,7 +231,7 @@ function AnalysisContent({ challenge }: { challenge: SqlChallenge }) {
 
       <section className="dialect-note">
         <Database size={17} />
-        <div><strong>方言说明</strong><p>{challenge.dialectNote}</p></div>
+        <div><strong>语法说明</strong><p>{challenge.dialectNote}</p></div>
       </section>
     </div>
   );
@@ -279,19 +284,9 @@ function ResultPanel({
 
         {report ? (
           <>
-            <div className={`run-summary tone-${statusTone(report.verdict)}`} role={report.passed ? "status" : "alert"}>
-              {report.passed ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-              <div>
-                <strong>{report.passed ? (report.mode === "submit" ? "全部测试通过" : "公开样例通过") : verdictLabel[report.verdict]}</strong>
-                <span>{report.cases.filter((item) => item.verdict === "ACCEPTED").length}/{report.cases.length} 个已执行用例通过 · {Math.round(report.elapsedMs)} ms</span>
-              </div>
-              {report.passed && !report.optimized ? <span className="quality-badge">结果正确 · 仍可优化</span> : null}
-              {report.passed && report.optimized ? <span className="optimized-badge"><Sparkles size={12} /> 推荐写法</span> : null}
-            </div>
-
             {resultTab === "tests" ? (
-              <div className="test-list">
-                {report.cases.map((testCase) => (
+              <div className="tests-view">
+                <div className="test-list">{report.cases.map((testCase) => (
                   <button key={testCase.caseId} type="button" className={`test-row ${activeCase?.caseId === testCase.caseId ? "active" : ""}`} onClick={() => {
                     setActiveCaseId(testCase.caseId);
                     if (testCase.visibility === "public") setResultTab("output");
@@ -300,31 +295,41 @@ function ResultPanel({
                       {testCase.verdict === "ACCEPTED" ? <CheckCircle2 size={17} /> : <AlertCircle size={17} />}
                     </span>
                     <span className="test-name">
-                      <strong>{testCase.name}</strong>
+                      <strong title={testCase.name}>{testCase.name}</strong>
                       <small>{testCase.visibility === "hidden" ? <><LockKeyhole size={11} /> 隐藏边界</> : "公开数据"}</small>
                     </span>
                     <span className="test-verdict">{verdictLabel[testCase.verdict]}</span>
                     <span className="test-time">{Math.round(testCase.elapsedMs)} ms</span>
                   </button>
-                ))}
+                ))}</div>
                 {activeCase?.verdict !== "ACCEPTED" ? (
                   <div className="failure-detail">
                     <strong>{activeCase?.message}</strong>
                     {activeCase?.boundaryHint ? <p>{activeCase.boundaryHint}</p> : null}
                   </div>
                 ) : null}
+                {report.mode === "run" ? <p className="test-scope-note">本次仅运行公开样例；提交后会检查隐藏边界用例。</p> : null}
               </div>
             ) : null}
 
             {resultTab === "output" ? (
               <div className="output-view">
+                <div className={`run-summary tone-${statusTone(report.verdict)}`} role={report.passed ? "status" : "alert"}>
+                  {report.passed ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                  <div>
+                    <strong>{report.passed ? (report.mode === "submit" ? "全部测试通过" : "公开样例通过") : verdictLabel[report.verdict]}</strong>
+                    <span>{Math.round(report.elapsedMs)} ms · {report.mode === "submit" ? "提交校验" : "公开运行"}</span>
+                  </div>
+                  {report.passed && !report.optimized ? <span className="quality-badge">结果正确 · 仍可优化</span> : null}
+                  {report.passed && report.optimized ? <span className="optimized-badge"><Sparkles size={12} /> 推荐写法</span> : null}
+                </div>
                 {!activeCase ? null : activeCase.visibility === "hidden" ? (
                   <div className="hidden-output"><LockKeyhole size={21} /><strong>隐藏用例不展示完整数据</strong><p>{activeCase.message}</p>{activeCase.boundaryHint ? <span>{activeCase.boundaryHint}</span> : null}</div>
                 ) : (
                   <>
                     <div className="case-message">
                       <strong>{activeCase.name}</strong>
-                      <span>{activeCase.message}</span>
+                      <span title={activeCase.verdict === "ACCEPTED" ? undefined : activeCase.message}>{activeCase.verdict === "ACCEPTED" && activeCase.actual ? `${activeCase.actual.rows.length} 行 · ${activeCase.actual.columns.length} 列` : activeCase.message}</span>
                     </div>
                     {activeCase.verdict !== "ACCEPTED" && activeCase.actual && activeCase.expected ? (
                       <div className="diff-grid">
@@ -342,8 +347,11 @@ function ResultPanel({
                 <p className="quality-intro">以下建议不参与正确性判定，只帮助你写出语义更清楚、通常也更稳健的 SQL。</p>
                 {report.quality.map((finding) => (
                   <div className={`quality-item ${finding.passed ? "passed" : "suggestion"}`} key={finding.id}>
-                    {finding.passed ? <Sparkles size={17} /> : <Lightbulb size={17} />}
-                    <div><strong>{finding.label}</strong><p>{finding.message}</p></div>
+                    <div className="quality-item-heading">
+                      {finding.passed ? <Sparkles size={17} aria-hidden="true" /> : <Lightbulb size={17} aria-hidden="true" />}
+                      <strong>{finding.label}</strong>
+                    </div>
+                    <p>{finding.message}</p>
                   </div>
                 ))}
               </div>
@@ -362,6 +370,7 @@ export default function SqlLab() {
   const [deleting, setDeleting] = useState(false);
   const [catalogNotice, setCatalogNotice] = useState("");
   const [catalogError, setCatalogError] = useState("");
+  const [pendingChallenge, setPendingChallenge] = useState<SqlChallenge | null>(null);
   const [selectedId, setSelectedId] = useState(challenges[0].id);
   const [sql, setSql] = useState(challenges[0].starterSql);
   const [drafts, setDrafts] = useState<DraftState>({});
@@ -376,7 +385,13 @@ export default function SqlLab() {
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [editorPercent, setEditorPercent] = useState(DEFAULT_EDITOR_PERCENT);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const codingPaneRef = useRef<HTMLElement>(null);
+  const problemScrollRef = useRef<HTMLDivElement>(null);
+  const analysisScrollRef = useRef<HTMLDivElement>(null);
+  const contentScrollPositions = useRef<Record<string, number>>({});
+  const resizePointer = useRef<number | null>(null);
   const persistLearningState = useCallback((key: string, value: unknown) => {
     try { localStorage.setItem(key, JSON.stringify(value)); }
     catch { setCatalogError("本地记录保存失败，可能是存储空间不足或浏览器禁用了存储。请保留当前 SQL 后重试。"); }
@@ -395,6 +410,10 @@ export default function SqlLab() {
   }, [catalogError, deleting]);
 
   const challenge = challenges.find((item) => item.id === selectedId) ?? defaultChallenges[0];
+  useLayoutEffect(() => {
+    const panel = contentTab === "problem" ? problemScrollRef.current : analysisScrollRef.current;
+    if (panel) panel.scrollTop = contentScrollPositions.current[`${challenge.id}:${contentTab}`] ?? 0;
+  }, [challenge.id, contentTab]);
   const completedCount = challenges.filter((item) => progress[item.id]?.passed).length;
   const completionPercent = challenges.length ? Math.round((completedCount / challenges.length) * 100) : 0;
 
@@ -412,15 +431,18 @@ export default function SqlLab() {
         try { return localStorage.getItem(key); }
         catch { return null; }
       };
-      const storedDrafts = parseDrafts(read(STORAGE.drafts));
       const storedProgress = parseProgress(read(STORAGE.progress));
+      const storedDrafts = Object.fromEntries(Object.entries(parseDrafts(read(STORAGE.drafts)))
+        .filter(([id]) => storedProgress[id]?.passed && catalog.some((item) => item.id === id)));
       const preferences = parsePreferences(read(STORAGE.preferences));
+      const savedEditorPercent = Number(read(EDITOR_SIZE_STORAGE_KEY));
+      if (Number.isFinite(savedEditorPercent) && savedEditorPercent >= 30 && savedEditorPercent <= 70) setEditorPercent(savedEditorPercent);
       const restored = catalog.find((item) => item.id === preferences.selectedId) ?? catalog[0] ?? defaultChallenges[0];
       setDrafts(storedDrafts);
       setProgress(storedProgress);
       setSelectedId(restored.id);
       setFilter(preferences.filter ?? "all");
-      setSql(storedDrafts[restored.id] ?? restored.starterSql);
+      setSql(storedProgress[restored.id]?.passed ? storedDrafts[restored.id] ?? restored.starterSql : restored.starterSql);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(restoreTimer);
@@ -428,12 +450,11 @@ export default function SqlLab() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const next = challenges.some((item) => item.id === selectedId) ? { ...drafts, [selectedId]: sql } : drafts;
-    const flush = () => persistLearningState(STORAGE.drafts, next);
-    const timer = window.setTimeout(flush, 400);
+    const flush = () => persistLearningState(STORAGE.drafts, drafts);
+    const timer = window.setTimeout(flush, 0);
     window.addEventListener("pagehide", flush);
     return () => { window.clearTimeout(timer); window.removeEventListener("pagehide", flush); };
-  }, [challenges, drafts, hydrated, selectedId, sql, persistLearningState]);
+  }, [drafts, hydrated, persistLearningState]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -467,13 +488,9 @@ export default function SqlLab() {
     });
   }, [challenges, filter, progress, search]);
 
-  const selectChallenge = (next: SqlChallenge) => {
-    if (running) return;
-    const nextDrafts = { ...drafts, [selectedId]: sql };
-    persistLearningState(STORAGE.drafts, nextDrafts);
-    setDrafts(nextDrafts);
+  const switchChallenge = (next: SqlChallenge) => {
     setSelectedId(next.id);
-    setSql(nextDrafts[next.id] ?? next.starterSql);
+    setSql(progress[next.id]?.passed ? drafts[next.id] ?? next.starterSql : next.starterSql);
     setReport(null);
     setActiveCaseId(null);
     setContentTab("problem");
@@ -482,10 +499,39 @@ export default function SqlLab() {
     setSidebarOpen(false);
   };
 
+  const selectChallenge = (next: SqlChallenge) => {
+    if (running) return;
+    if (next.id === selectedId) { setSidebarOpen(false); return; }
+    const savedSql = progress[selectedId]?.passed ? drafts[selectedId] ?? challenge.starterSql : challenge.starterSql;
+    if (sql !== savedSql) { setPendingChallenge(next); return; }
+    switchChallenge(next);
+  };
+
+  const resizeEditor = (clientY: number) => {
+    const pane = codingPaneRef.current;
+    if (!pane) return editorPercent;
+    const bounds = pane.getBoundingClientRect();
+    const next = clampEditorPercent((clientY - bounds.top) / bounds.height * 100);
+    setEditorPercent(next);
+    return next;
+  };
+  const clampEditorPercent = (value: number) => {
+    const height = codingPaneRef.current?.getBoundingClientRect().height ?? 800;
+    const min = Math.max(30, Math.ceil(280 / height * 100));
+    const max = Math.min(70, Math.floor((height - 244) / height * 100));
+    return Math.min(Math.max(min, max), Math.max(min, Math.round(value)));
+  };
+  const saveEditorSize = (value: number) => {
+    const next = clampEditorPercent(value);
+    setEditorPercent(next);
+    try { localStorage.setItem(EDITOR_SIZE_STORAGE_KEY, String(next)); }
+    catch { setCatalogError("编辑区大小保存失败，请检查浏览器的本地存储设置。"); }
+  };
+
   const run = async (mode: "run" | "submit") => {
     if (running) return;
     setRunning(true);
-    setResultTab("tests");
+    setResultTab(mode === "run" ? "output" : "tests");
     setMobileTab("result");
     try {
       const nextReport = await judgeChallenge(challenge, sql, mode);
@@ -493,6 +539,7 @@ export default function SqlLab() {
       const failure = nextReport.cases.find((item) => item.verdict !== "ACCEPTED");
       setActiveCaseId((failure ?? nextReport.cases[0])?.caseId ?? null);
       if (mode === "submit" && nextReport.passed) {
+        setDrafts((current) => ({ ...current, [challenge.id]: sql }));
         setProgress((current) => ({
           ...current,
           [challenge.id]: {
@@ -526,31 +573,13 @@ export default function SqlLab() {
     setFilter("all");
   };
 
-  const editorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-      event.preventDefault();
-      void run(event.shiftKey ? "submit" : "run");
-    }
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const target = event.currentTarget;
-      const start = target.selectionStart;
-      const end = target.selectionEnd;
-      const next = `${sql.slice(0, start)}  ${sql.slice(end)}`;
-      setSql(next);
-      window.requestAnimationFrame(() => {
-        target.selectionStart = target.selectionEnd = start + 2;
-      });
-    }
-  };
-
   const saveConfig = (next: SqlChallenge) => {
     const catalog = saveChallenge(challenges, next, editing?.creating ? undefined : editing?.challenge.id);
     // Persist first so a quota/storage error keeps the editor and original catalog intact.
     localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
     setChallenges(catalog);
     setProgress((current) => { const updated = { ...current }; delete updated[next.id]; return updated; });
-    setDrafts((current) => ({ ...current, [next.id]: next.starterSql }));
+    setDrafts((current) => { const updated = { ...current }; delete updated[next.id]; return updated; });
     setSelectedId(next.id);
     setSql(next.starterSql);
     setReport(null);
@@ -574,7 +603,7 @@ export default function SqlLab() {
       if (removed.has(selectedId)) {
         const next = catalog[0];
         setSelectedId(next?.id ?? "");
-        setSql(next ? drafts[next.id] ?? next.starterSql : "");
+        setSql(next ? (progress[next.id]?.passed ? drafts[next.id] ?? next.starterSql : next.starterSql) : "");
         setReport(null); setActiveCaseId(null);
       }
       setDeleting(false);
@@ -605,14 +634,14 @@ export default function SqlLab() {
 
   const replaceCatalog = (incoming: SqlChallenge[]) => {
     const unchanged = unchangedChallengeIds(challenges, incoming);
-    const nextDrafts = Object.fromEntries(Object.entries(drafts).filter(([id]) => unchanged.has(id)));
+    const nextDrafts = Object.fromEntries(Object.entries(drafts).filter(([id]) => unchanged.has(id) && progress[id]?.passed));
     const nextProgress = Object.fromEntries(Object.entries(progress).filter(([id]) => unchanged.has(id)));
     // Save the catalog first; failure keeps the dialog and current catalog intact.
     localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(incoming));
     setChallenges(incoming); setDrafts(nextDrafts); setProgress(nextProgress);
     const next = incoming.find((item) => item.id === selectedId) ?? incoming[0];
     setSelectedId(next?.id ?? "");
-    setSql(next ? (unchanged.has(next.id) && next.id === selectedId ? sql : nextDrafts[next.id] ?? next.starterSql) : "");
+    setSql(next ? (nextProgress[next.id]?.passed ? nextDrafts[next.id] ?? next.starterSql : next.starterSql) : "");
     setReport(null); setActiveCaseId(null);
     setFilter("all"); setSearch(""); setContentTab("problem");
     setImporting(false); setCatalogError("");
@@ -640,6 +669,10 @@ export default function SqlLab() {
     {editing ? <ChallengeEditor chapters={getChapters(challenges)} challenge={editing.challenge} creating={editing.creating} onSave={saveConfig} onClose={() => setEditing(null)} /> : null}
     {importing ? <CatalogImportDialog current={challenges} onImport={replaceCatalog} onClose={() => setImporting(false)} /> : null}
     {deleting ? <DeleteChallengesDialog challenges={challenges} error={catalogError} onDelete={removeConfig} onClose={() => setDeleting(false)} /> : null}
+    {pendingChallenge ? <ManagementDialog title="放弃当前修改？" onClose={() => setPendingChallenge(null)} className="switch-confirm-dialog" compact>
+      <div className="management-body"><p>切换题目后，未提交的 SQL 将丢失。</p></div>
+      <footer className="management-footer"><div><button type="button" className="secondary-button" onClick={() => setPendingChallenge(null)}>继续编辑</button><button type="button" className="danger-button filled" onClick={() => { switchChallenge(pendingChallenge); setPendingChallenge(null); }}>丢弃并切换</button></div></footer>
+    </ManagementDialog> : null}
   </>;
 
   if (!challenges.length) return <div className="empty-catalog"><h1>SQL 实战练习</h1><p>题库为空，新增题目并配置本题的数据源 SQL。</p>{tools}{manager}</div>;
@@ -694,7 +727,7 @@ export default function SqlLab() {
                     <button key={item.id} type="button" className={`challenge-row ${item.id === challenge.id ? "active" : ""}`} onClick={() => selectChallenge(item)}>
                       <ProgressMark progress={progress[item.id]} />
                       <span className="challenge-index">{String(item.number).padStart(2, "0")}</span>
-                      <span className="challenge-name">{item.title}</span>
+                      <span className="challenge-name" title={item.title}>{item.title}</span>
                       <span className={`difficulty-dot ${item.difficulty}`}>{difficultyLabel[item.difficulty]}</span>
                     </button>
                   ))}
@@ -717,32 +750,43 @@ export default function SqlLab() {
             <div className="tag-list">{challenge.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
           </header>
           <div className="content-tabs" role="tablist" aria-label="题目内容">
-            <button type="button" role="tab" aria-selected={contentTab === "problem"} className={contentTab === "problem" ? "active" : ""} onClick={() => setContentTab("problem")}>题目</button>
-            <button type="button" role="tab" aria-selected={contentTab === "analysis"} className={contentTab === "analysis" ? "active" : ""} onClick={() => setContentTab("analysis")}>解析</button>
+            <button id="problem-tab" type="button" role="tab" aria-controls="problem-panel" aria-selected={contentTab === "problem"} className={contentTab === "problem" ? "active" : ""} onClick={() => setContentTab("problem")}>题目</button>
+            <button id="analysis-tab" type="button" role="tab" aria-controls="analysis-panel" aria-selected={contentTab === "analysis"} className={contentTab === "analysis" ? "active" : ""} onClick={() => setContentTab("analysis")}>解析</button>
           </div>
-          <div className="pane-scroll">
-            {contentTab === "problem" ? <ProblemContent challenge={challenge} /> : <AnalysisContent key={challenge.id} challenge={challenge} />}
+          <div id="problem-panel" key={`${challenge.id}:problem`} ref={problemScrollRef} className="pane-scroll" role="tabpanel" aria-labelledby="problem-tab" hidden={contentTab !== "problem"} onScroll={(event) => {
+            if (contentTab === "problem") contentScrollPositions.current[`${challenge.id}:problem`] = event.currentTarget.scrollTop;
+          }}>
+            <ProblemContent challenge={challenge} />
+          </div>
+          <div id="analysis-panel" key={`${challenge.id}:analysis`} ref={analysisScrollRef} className="pane-scroll" role="tabpanel" aria-labelledby="analysis-tab" hidden={contentTab !== "analysis"} onScroll={(event) => {
+            if (contentTab === "analysis") contentScrollPositions.current[`${challenge.id}:analysis`] = event.currentTarget.scrollTop;
+          }}>
+            <AnalysisContent challenge={challenge} />
           </div>
         </section>
 
-        <section className={`coding-pane mobile-${mobileTab}`} aria-label="SQL 编程区">
+        <section ref={codingPaneRef} className={`coding-pane mobile-${mobileTab}`} aria-label="SQL 编程区" style={{ "--editor-pane-size": `${editorPercent}%` } as React.CSSProperties}>
           <div className="editor-section">
             <div className="editor-toolbar">
-              <div className="editor-language"><Code2 size={16} /><strong>SQL</strong><span>SQLite · MySQL 8 常用子集</span></div>
+              <div className="editor-language"><Code2 size={16} /><strong>SQL</strong></div>
               <div className="editor-actions">
                 <button className="ghost-button" type="button" onClick={resetCurrent} disabled={running} title="恢复本题初始代码"><RotateCcw size={15} /><span>重置</span></button>
                 <button className="secondary-button" type="button" onClick={() => void run("run")} disabled={running}><Play size={15} fill="currentColor" />运行</button>
                 <button className="primary-button" type="button" onClick={() => void run("submit")} disabled={running}>{running ? <LoaderCircle className="spin" size={15} /> : <Send size={15} />}提交</button>
               </div>
             </div>
-            <div className="editor-wrap">
-              <div className="line-numbers" aria-hidden="true">{sql.split("\n").map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-              <textarea ref={editorRef} id="sql-editor" value={sql} onChange={(event) => setSql(event.target.value)} onKeyDown={editorKeyDown} spellCheck={false} aria-label={`${challenge.title} SQL 编辑器`} />
-            </div>
+            <SqlEditor key={challenge.id} challenge={challenge} value={sql} onChange={setSql} onRun={(mode) => void run(mode)} editorRef={editorRef} />
             <div className="editor-footer">
-              <span>单条 SELECT / WITH 查询</span>
               <span><kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd> 运行 · 加 <kbd>Shift</kbd> 提交</span>
             </div>
+          </div>
+          <div className="editor-resizer" role="slider" tabIndex={0} aria-label="SQL 编辑区高度" aria-orientation="vertical" aria-valuemin={30} aria-valuemax={70} aria-valuenow={editorPercent} aria-valuetext={`编辑区占 ${editorPercent}%`}
+            onPointerDown={(event) => { resizePointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); resizeEditor(event.clientY); }}
+            onPointerMove={(event) => { if (resizePointer.current === event.pointerId) resizeEditor(event.clientY); }}
+            onPointerUp={(event) => { if (resizePointer.current === event.pointerId) { resizePointer.current = null; saveEditorSize(resizeEditor(event.clientY)); event.currentTarget.releasePointerCapture(event.pointerId); } }}
+            onPointerCancel={() => { resizePointer.current = null; }}
+            onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); saveEditorSize(clampEditorPercent(editorPercent + (event.key === "ArrowUp" ? -5 : 5))); } }}>
+            <span aria-hidden="true" />
           </div>
           <ResultPanel report={report} resultTab={resultTab} setResultTab={setResultTab} activeCaseId={activeCaseId} setActiveCaseId={setActiveCaseId} running={running} />
           <div className="mobile-action-bar">

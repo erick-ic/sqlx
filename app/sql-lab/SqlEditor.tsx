@@ -21,6 +21,30 @@ const KEYWORDS = [
   "COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE", "ASC", "DESC",
 ];
 
+const HIGHLIGHT_KEYWORDS = new Set([
+  ...KEYWORDS.flatMap((keyword) => keyword.split(" ")),
+  "BY", "CROSS", "EXISTS", "FALSE", "FULL", "NULL", "OFFSET", "OUTER", "RECURSIVE", "TRUE",
+]);
+const SQL_TOKENS = /--[^\r\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:''|[^'])*'?|"(?:""|[^"])*"?|`(?:``|[^`])*`?|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+
+function highlightSql(value: string) {
+  const fragments: React.ReactNode[] = [];
+  let lastIndex = 0;
+  for (const match of value.matchAll(SQL_TOKENS)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) fragments.push(value.slice(lastIndex, index));
+    const token = match[0];
+    const kind = token.startsWith("--") || token.startsWith("/*") ? "comment"
+      : token.startsWith("'") || token.startsWith('"') || token.startsWith("`") ? "string"
+      : /^\d/.test(token) ? "number"
+      : HIGHLIGHT_KEYWORDS.has(token.toUpperCase()) ? "keyword" : "plain";
+    fragments.push(kind === "plain" ? token : <span key={index} className={`sql-token-${kind}`}>{token}</span>);
+    lastIndex = index + token.length;
+  }
+  if (lastIndex < value.length) fragments.push(value.slice(lastIndex));
+  return fragments;
+}
+
 function candidates(challenge: SqlChallenge, prefix: string, afterDot: boolean): CompletionItem[] {
   const items: CompletionItem[] = [];
   if (!afterDot) {
@@ -40,7 +64,7 @@ function candidates(challenge: SqlChallenge, prefix: string, afterDot: boolean):
 }
 
 function caretPosition(textarea: HTMLTextAreaElement, cursor: number, itemCount: number) {
-  const wrap = textarea.parentElement;
+  const wrap = textarea.closest<HTMLElement>(".editor-wrap");
   if (!wrap) return { top: 8, left: 8 };
   const before = textarea.value.slice(0, cursor);
   const line = before.slice(before.lastIndexOf("\n") + 1);
@@ -74,7 +98,9 @@ export default function SqlEditor({ challenge, value, onChange, onRun, editorRef
   editorRef: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [completion, setCompletion] = useState<Completion | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
   const composing = useRef(false);
+  const highlightRef = useRef<HTMLPreElement>(null);
 
   const updateCompletion = (textarea: HTMLTextAreaElement) => {
     if (composing.current || textarea.selectionStart !== textarea.selectionEnd) { setCompletion(null); return; }
@@ -103,14 +129,21 @@ export default function SqlEditor({ challenge, value, onChange, onRun, editorRef
 
   return <div className="editor-wrap">
     <div className="line-numbers" aria-hidden="true">{value.split("\n").map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-    <textarea ref={editorRef} id="sql-editor" value={value}
+    <pre ref={highlightRef} className="sql-highlight" aria-hidden="true"><code>{highlightSql(value)}{"\n"}</code></pre>
+    <textarea ref={editorRef} id="sql-editor" value={value} wrap="off" className={isComposing ? "composing" : ""}
       onChange={(event) => { onChange(event.target.value); updateCompletion(event.currentTarget); }}
+      onScroll={(event) => {
+        if (highlightRef.current) {
+          highlightRef.current.scrollTop = event.currentTarget.scrollTop;
+          highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
+        }
+      }}
       onClick={(event) => updateCompletion(event.currentTarget)}
       onKeyUp={(event) => {
         if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) updateCompletion(event.currentTarget);
       }}
-      onCompositionStart={() => { composing.current = true; setCompletion(null); }}
-      onCompositionEnd={(event) => { composing.current = false; updateCompletion(event.currentTarget); }}
+      onCompositionStart={() => { composing.current = true; setIsComposing(true); setCompletion(null); }}
+      onCompositionEnd={(event) => { composing.current = false; setIsComposing(false); updateCompletion(event.currentTarget); }}
       onBlur={() => setCompletion(null)}
       onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {

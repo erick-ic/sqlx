@@ -1013,7 +1013,32 @@ kbd {
   user-select: none;
 }
 
+.sql-highlight {
+  position: absolute;
+  inset: 0 0 0 47px;
+  z-index: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 16px 18px 26px;
+  color: var(--editor-text);
+  font: 14px/1.72 var(--mono);
+  font-variant-ligatures: none;
+  tab-size: 2;
+  white-space: pre;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+
+.sql-highlight::-webkit-scrollbar { display: none; }
+.sql-highlight code { font: inherit; }
+.sql-token-keyword { color: #ad9bff; }
+.sql-token-string { color: #a8d89d; }
+.sql-token-number { color: #f3bf7b; }
+.sql-token-comment { color: #8b99a8; }
+
 .editor-wrap textarea {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   min-height: 100%;
@@ -1021,8 +1046,8 @@ kbd {
   border: 0;
   outline: 0;
   padding: 16px 18px 26px;
-  background: var(--editor);
-  color: var(--editor-text);
+  background: transparent;
+  color: transparent;
   caret-color: #b9b3ff;
   font-family: var(--mono);
   font-size: 14px;
@@ -1030,7 +1055,12 @@ kbd {
   line-height: 1.72;
   tab-size: 2;
   white-space: pre;
+  -webkit-text-fill-color: transparent;
 }
+
+.editor-wrap textarea::selection { background: rgb(111 103 222 / 40%); color: transparent; }
+.editor-wrap textarea.composing { color: var(--editor-text); -webkit-text-fill-color: var(--editor-text); }
+.editor-wrap:has(textarea.composing) .sql-highlight { visibility: hidden; }
 
 .editor-wrap textarea:focus {
   box-shadow: inset 3px 0 0 #6f67de;

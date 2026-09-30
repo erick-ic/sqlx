@@ -4,10 +4,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SQL 实战练习",
   description: "轻量、可本地运行的 SQL 刷题与判题工作台。",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
 };
 
 export const viewport: Viewport = {
@@ -23,6 +19,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+        <link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+      </head>
       <body>{children}</body>
     </html>
   );
